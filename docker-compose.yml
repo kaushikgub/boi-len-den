@@ -135,6 +135,33 @@ services:
       timeout: 5s
       retries: 12
 
+  # ---- kafka-ui (Provectus) — topics, messages, consumer groups, Schema Registry
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    ports:
+      - '8080:8080'
+    environment:
+      KAFKA_CLUSTERS_0_NAME: boi-len-den
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      DYNAMIC_CONFIG_ENABLED: 'true'
+
+  # ---- RedisInsight — browse keys, TTLs, the reservation gate, denylist --------
+  redisinsight:
+    image: redis/redisinsight:latest
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - '8001:5540'
+    volumes:
+      - redisinsight-data:/data
+
   # ---- One-shot topic creation ------------------------------------------------
   # Creates the rental-lifecycle topics partitioned for per-book ordering, then exits.
   kafka-init:
@@ -163,4 +190,5 @@ volumes:
   pg-inventory-data:
   pg-catalog-data:
   redis-data:
+  redisinsight-data:
   kafka-data:
