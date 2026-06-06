@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 
 /** App shell: top bar with nav + the current user, and a centered content container. */
 export function Layout({ children }: { children: ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, logout, hasRole } = useAuth();
   const navigate = useNavigate();
 
   return (
@@ -22,6 +22,11 @@ export function Layout({ children }: { children: ReactNode }) {
             <Button color="inherit" component={RouterLink} to="/rentals">
               My Rentals
             </Button>
+            {hasRole('librarian', 'admin') && (
+              <Button color="inherit" component={RouterLink} to="/admin/books">
+                Add Book
+              </Button>
+            )}
           </Stack>
           {user && (
             <Stack direction="row" spacing={2} alignItems="center">

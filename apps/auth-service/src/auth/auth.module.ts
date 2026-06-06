@@ -6,10 +6,11 @@ import { KeysModule } from '../keys/keys.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { TokenService } from './token.service';
+import { AdminSeedService } from './admin-seed.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User]), KeysModule],
   controllers: [AuthController],
-  providers: [AuthService, UsersService, TokenService],
+  providers: [AuthService, UsersService, TokenService, AdminSeedService],
 })
 export class AuthModule {}
