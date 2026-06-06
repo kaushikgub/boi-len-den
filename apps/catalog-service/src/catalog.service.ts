@@ -1,31 +1,47 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
+import { RedisService } from '@app/common';
 import { BOOK_CREATED, BookCreatedPayload, TOPICS } from '@app/contracts';
 import { Book } from './entities/book.entity';
 import { OutboxMessage } from './entities/outbox.entity';
 import { buildEnvelope } from './outbox/envelope.factory';
 import { CreateBookDto } from './dto';
 
+const LIST_KEY = 'catalog:books:list';
+const bookKey = (id: string) => `catalog:book:${id}`;
+const LIST_TTL = 60;   // seconds
+const BOOK_TTL = 300;  // seconds
+
 @Injectable()
 export class CatalogService {
   private readonly logger = new Logger(CatalogService.name);
 
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly redis: RedisService,
+  ) {}
 
-  listBooks(): Promise<Book[]> {
-    return this.dataSource.getRepository(Book).find({ order: { title: 'ASC' } });
+  async listBooks(): Promise<Book[]> {
+    const cached = await this.redis.client.get(LIST_KEY);
+    if (cached) return JSON.parse(cached) as Book[];
+    const books = await this.dataSource.getRepository(Book).find({ order: { title: 'ASC' } });
+    await this.redis.client.setex(LIST_KEY, LIST_TTL, JSON.stringify(books));
+    return books;
   }
 
   async getBook(id: string): Promise<Book> {
+    const cached = await this.redis.client.get(bookKey(id));
+    if (cached) return JSON.parse(cached) as Book;
     const book = await this.dataSource.getRepository(Book).findOne({ where: { id } });
     if (!book) throw new NotFoundException('Book not found');
+    await this.redis.client.setex(bookKey(id), BOOK_TTL, JSON.stringify(book));
     return book;
   }
 
   async searchBooks(q: string): Promise<Book[]> {
     if (!q.trim()) return this.listBooks();
-    // Simple ILIKE search for Slice 2; Step 5 upgrades this to pg_tsvector FTS.
+    // ILIKE search for now; Step 5 upgrades to pg_tsvector FTS with GIN index.
     const term = `%${q.trim()}%`;
     return this.dataSource
       .getRepository(Book)
@@ -52,6 +68,10 @@ export class CatalogService {
       );
       await this.appendOutbox(manager, book, dto.totalCopies, correlationId);
       this.logger.log(`created book ${book.id} "${book.title}" (${dto.totalCopies} copies)`);
+      return book;
+    }).then(async (book) => {
+      // Invalidate list cache after commit so the next read re-fetches from DB.
+      await this.redis.client.del(LIST_KEY);
       return book;
     });
   }
