@@ -1,0 +1,147 @@
+# Slice 1 topology — infrastructure only for now. App containers (api-gateway,
+# auth-service, rental-service, inventory-service, web-frontend) are added to this
+# file as each is built in subsequent steps.
+#
+# One Postgres container PER service (separate creds) to mirror prod isolation and
+# make cross-service DB access physically impossible. Kafka runs in KRaft mode (no
+# ZooKeeper). Schema Registry holds the JSON Schemas for our events.
+
+name: boi-len-den
+
+services:
+  # ---- Postgres: one per DB-owning service ------------------------------------
+  postgres-auth:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: auth
+      POSTGRES_PASSWORD: auth
+      POSTGRES_DB: auth
+    ports:
+      - '5433:5432'
+    volumes:
+      - pg-auth-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U auth -d auth']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres-rental:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rental
+      POSTGRES_PASSWORD: rental
+      POSTGRES_DB: rental
+    ports:
+      - '5434:5432'
+    volumes:
+      - pg-rental-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U rental -d rental']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres-inventory:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: inventory
+      POSTGRES_PASSWORD: inventory
+      POSTGRES_DB: inventory
+    ports:
+      - '5435:5432'
+    volumes:
+      - pg-inventory-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U inventory -d inventory']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ---- Redis: revocation denylist, cache, reservation gate, rate limiting -----
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ---- Kafka (KRaft single node) ----------------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.7.1
+    ports:
+      - '9092:9092' # host-facing listener (tests, local tooling)
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # Fixed cluster id so the KRaft metadata log survives restarts.
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ['CMD', 'kafka-topics', '--bootstrap-server', 'localhost:9092', '--list']
+      interval: 10s
+      timeout: 10s
+      retries: 12
+
+  # ---- Schema Registry (JSON Schema subjects for our events) ------------------
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.7.1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - '8081:8081'
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'PLAINTEXT://kafka:29092'
+      SCHEMA_REGISTRY_LISTENERS: 'http://0.0.0.0:8081'
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: 'backward'
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8081/subjects']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # ---- One-shot topic creation ------------------------------------------------
+  # Creates the rental-lifecycle topics partitioned for per-book ordering, then exits.
+  kafka-init:
+    image: confluentinc/cp-kafka:7.7.1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        echo "Creating topics..."
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+          --topic book-rented --partitions 6 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+          --topic book-returned --partitions 6 --replication-factor 1
+        echo "Topics present:"
+        kafka-topics --bootstrap-server kafka:29092 --list
+    restart: 'no'
+
+volumes:
+  pg-auth-data:
+  pg-rental-data:
+  pg-inventory-data:
+  redis-data:
+  kafka-data:

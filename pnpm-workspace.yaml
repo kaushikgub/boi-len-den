@@ -1,0 +1,5 @@
+# The backend is a single NestJS monorepo (apps/ + libs/) sharing one package.json.
+# The Vite frontend is a separate workspace package because it lives outside Nest's
+# build model. Both are managed by pnpm so a single `pnpm install` wires everything.
+packages:
+  - 'web-frontend'
