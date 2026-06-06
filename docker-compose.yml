@@ -218,6 +218,8 @@ services:
         condition: service_healthy
       schema-registry:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
       auth-service:
         condition: service_healthy
     healthcheck:
@@ -256,6 +258,8 @@ services:
         condition: service_healthy
       schema-registry:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
       auth-service:
         condition: service_healthy
       inventory-service:
@@ -293,6 +297,8 @@ services:
         condition: service_healthy
       schema-registry:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
       auth-service:
         condition: service_healthy
     healthcheck:
