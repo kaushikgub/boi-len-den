@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { KafkaService } from '@app/common';
-import { BookRentedSchema, BookReturnedSchema } from '@app/contracts';
+import { BookOverdueSchema, BookRentedSchema, BookReturnedSchema } from '@app/contracts';
 import { OutboxMessage } from '../entities/outbox.entity';
 import { validateEvent } from './event-validator';
 
@@ -37,6 +37,7 @@ export class RelayService implements OnModuleInit, OnModuleDestroy {
     // rental-service is the producer, so it owns schema registration.
     await this.kafka.registerSchema('book-rented-value', BookRentedSchema);
     await this.kafka.registerSchema('book-returned-value', BookReturnedSchema);
+    await this.kafka.registerSchema('book-overdue-value', BookOverdueSchema);
 
     this.timer = setInterval(() => {
       void this.poll();

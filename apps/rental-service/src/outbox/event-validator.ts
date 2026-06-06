@@ -1,8 +1,10 @@
 import Ajv, { ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 import {
+  BOOK_OVERDUE,
   BOOK_RENTED,
   BOOK_RETURNED,
+  BookOverdueSchema,
   BookRentedSchema,
   BookReturnedSchema,
 } from '@app/contracts';
@@ -19,6 +21,7 @@ addFormats(ajv);
 const validators: Record<string, ValidateFunction> = {
   [BOOK_RENTED]: ajv.compile(BookRentedSchema),
   [BOOK_RETURNED]: ajv.compile(BookReturnedSchema),
+  [BOOK_OVERDUE]: ajv.compile(BookOverdueSchema),
 };
 
 export function validateEvent(

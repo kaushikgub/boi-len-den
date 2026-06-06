@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite *)",
+      "Bash(git -C /Users/kaushik/Mine/Projects/boi-len-den add apps/catalog-service/src/entities/book.entity.ts apps/catalog-service/src/catalog.service.ts web-frontend/src/api/books.ts web-frontend/src/api/types.ts web-frontend/src/pages/AdminBooksPage.tsx)",
+      "Bash(git -C /Users/kaushik/Mine/Projects/boi-len-den commit -m ' *)",
+      "Bash(git -C /Users/kaushik/Mine/Projects/boi-len-den add apps/catalog-service/src/catalog.service.ts)",
+      "Bash(PGPASSWORD=catalog psql -h localhost -p 5436 -U catalog -d catalog -c \"\\\\d books\")",
+      "Bash(CATALOG_DATABASE_URL=postgres://catalog:catalog@localhost:5436/catalog REDIS_URL=redis://localhost:6379 KAFKA_BROKERS=localhost:9092 SCHEMA_REGISTRY_URL=http://localhost:8081 AUTH_JWKS_URL=http://localhost:3001/.well-known/jwks.json NODE_ENV=development PORT=3004 SERVICE_NAME=catalog-service node /Users/kaushik/Mine/Projects/boi-len-den/dist/apps/catalog-service/main.js)",
+      "Bash(docker exec *)",
+      "Bash(pkill -f \"dist/apps/catalog-service\")",
+      "Bash(git -C /Users/kaushik/Mine/Projects/boi-len-den add apps/catalog-service/src/entities/book.entity.ts apps/catalog-service/src/catalog.service.ts apps/catalog-service/src/catalog-setup.service.ts apps/catalog-service/src/app.module.ts)",
+      "Bash(CATALOG_DATABASE_URL=postgres://catalog:catalog@localhost:5436/catalog npx jest --config ./jest.int.config.js apps/catalog-service/test/catalog.int-spec.ts --no-coverage)",
+      "Bash(git -C /Users/kaushik/Mine/Projects/boi-len-den add web-frontend/src/pages/CatalogPage.tsx apps/catalog-service/test/catalog.int-spec.ts)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8001)",
+      "Bash(git -C /Users/kaushik/Mine/Projects/boi-len-den add docker-compose.yml)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('name:', d.get\\('name'\\)\\); [print\\(k\\) for k in d.get\\('scripts',{}\\)]\")"
+    ]
+  }
+}

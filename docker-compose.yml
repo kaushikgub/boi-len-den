@@ -74,6 +74,22 @@ services:
       timeout: 5s
       retries: 10
 
+  postgres-notification:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: notification
+      POSTGRES_PASSWORD: notification
+      POSTGRES_DB: notification
+    ports:
+      - '5437:5432'
+    volumes:
+      - pg-notification-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U notification -d notification']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   # ---- Redis: revocation denylist, cache, reservation gate, rate limiting -----
   redis:
     image: redis:7-alpine
@@ -372,6 +388,54 @@ services:
       KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
       DYNAMIC_CONFIG_ENABLED: 'true'
 
+  # ---- Mailpit — SMTP trap for dev email testing (:8025 web UI, :1025 SMTP) ----
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - '8025:8025' # web UI
+      - '1025:1025' # SMTP
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8025/livez']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: notification-service
+    environment:
+      PORT: 3005
+      SERVICE_NAME: notification-service
+      NODE_ENV: development
+      NOTIFICATION_DATABASE_URL: postgres://notification:notification@postgres-notification:5432/notification
+      KAFKA_BROKERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_FROM: noreply@boi-len-den.local
+    ports:
+      - '3005:3005'
+    depends_on:
+      postgres-notification:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3005/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
   # ---- RedisInsight — browse keys, TTLs, the reservation gate, denylist --------
   redisinsight:
     image: redis/redisinsight:latest
@@ -401,6 +465,8 @@ services:
           --topic book-rented --partitions 6 --replication-factor 1
         kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
           --topic book-returned --partitions 6 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+          --topic book-overdue --partitions 6 --replication-factor 1
         echo "Topics present:"
         kafka-topics --bootstrap-server kafka:29092 --list
     restart: 'no'
@@ -410,6 +476,7 @@ volumes:
   pg-rental-data:
   pg-inventory-data:
   pg-catalog-data:
+  pg-notification-data:
   jwt-keys-data:
   redis-data:
   redisinsight-data:

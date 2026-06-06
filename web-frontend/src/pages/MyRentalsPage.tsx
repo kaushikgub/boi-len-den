@@ -36,6 +36,7 @@ export function MyRentalsPage() {
   const loading = rentalsQ.isLoading || booksQ.isLoading;
   const titleById = new Map((booksQ.data ?? []).map((b) => [b.id, b.title]));
   const rentals = rentalsQ.data ?? [];
+  const overdueCount = rentals.filter((r) => r.status === 'OVERDUE').length;
 
   return (
     <Box>
@@ -47,6 +48,13 @@ export function MyRentalsPage() {
       </Typography>
 
       {rentalsQ.isError && <Alert severity="error">Failed to load your rentals.</Alert>}
+
+      {overdueCount > 0 && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          You have {overdueCount} overdue book{overdueCount > 1 ? 's' : ''}. Please return{' '}
+          {overdueCount > 1 ? 'them' : 'it'} as soon as possible to avoid further penalties.
+        </Alert>
+      )}
 
       {loading ? (
         <Stack spacing={1.5}>

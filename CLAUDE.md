@@ -32,19 +32,17 @@ Book rental platform built as NestJS microservices. Read this before touching an
 | — | kafka-ui (:8080) + RedisInsight (:8001) added to docker-compose | ✅ |
 | — | Full Docker Compose stack: Dockerfile (ARG SERVICE), web-frontend/Dockerfile (Vite + nginx), keys-init one-shot (openssl RSA keygen), all services containerised with healthchecks | ✅ |
 
-### Slice 3 — overdue detection + notification-service 🔲 NEXT
+### Slice 3 — overdue detection + notification-service ✅ DONE
 
-Planned steps (not started):
-
-| Step | What |
-|---|---|
-| 1 | `OverdueJob` in rental-service: `@Cron` every hour, query ACTIVE rentals where `dueAt < NOW()`, update status → OVERDUE, publish `BookOverdue` event via outbox |
-| 2 | `BookOverdue` event contract in `libs/contracts` (envelope + JSON Schema + topic `book-overdue`) |
-| 3 | New `notification-service` (port 3005, postgres-notification :5437): subscribes to `book-rented`, `book-returned`, `book-overdue`; sends emails via nodemailer (dev: Mailpit/MailHog SMTP trap) |
-| 4 | Notification dedup: `processed_events` table (same pattern as inventory-service) — redelivered event must not send duplicate email |
-| 5 | Add Mailpit to docker-compose (:8025 web UI, :1025 SMTP); wire `SMTP_HOST`/`SMTP_PORT` env var to notification-service |
-| 6 | Frontend: "OVERDUE" status chip already exists in `StatusChip`; add overdue banner on MyRentalsPage |
-| 7 | Integration tests: overdue job marks correct rentals; notification consumer dedupes correctly |
+| Step | What | Status |
+|---|---|---|
+| 1 | `OverdueJob` in rental-service: `@Cron` every hour, query ACTIVE rentals where `dueAt < NOW()`, update status → OVERDUE, publish `BookOverdue` event via outbox | ✅ |
+| 2 | `BookOverdue` event contract in `libs/contracts` (envelope + JSON Schema + topic `book-overdue`) | ✅ |
+| 3 | New `notification-service` (port 3005, postgres-notification :5437): subscribes to `book-rented`, `book-returned`, `book-overdue`; sends emails via nodemailer (dev: Mailpit SMTP trap) | ✅ |
+| 4 | Notification dedup: `processed_events` table (same pattern as inventory-service) — redelivered event must not send duplicate email | ✅ |
+| 5 | Add Mailpit to docker-compose (:8025 web UI, :1025 SMTP); wire `SMTP_HOST`/`SMTP_PORT` env var to notification-service | ✅ |
+| 6 | Frontend: overdue banner on MyRentalsPage showing count of overdue books | ✅ |
+| 7 | Integration tests: overdue job marks correct rentals; notification consumer dedupes correctly | ✅ |
 
 ### Slice 4 — payment-service (idempotent charges) 🔲 PENDING
 

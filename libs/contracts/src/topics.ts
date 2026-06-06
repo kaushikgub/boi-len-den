@@ -1,4 +1,5 @@
 import { BOOK_CREATED } from './events/book-created';
+import { BOOK_OVERDUE } from './events/book-overdue';
 import { BOOK_RENTED } from './events/book-rented';
 import { BOOK_RETURNED } from './events/book-returned';
 
@@ -11,6 +12,7 @@ export const TOPICS = {
   BOOK_CREATED: 'book-created',
   BOOK_RENTED: 'book-rented',
   BOOK_RETURNED: 'book-returned',
+  BOOK_OVERDUE: 'book-overdue',
 } as const;
 
 export type TopicName = (typeof TOPICS)[keyof typeof TOPICS];
@@ -20,4 +22,5 @@ export const EVENT_TOPIC: Record<string, TopicName> = {
   [BOOK_CREATED]: TOPICS.BOOK_CREATED,
   [BOOK_RENTED]: TOPICS.BOOK_RENTED,
   [BOOK_RETURNED]: TOPICS.BOOK_RETURNED,
+  [BOOK_OVERDUE]: TOPICS.BOOK_OVERDUE,
 };
