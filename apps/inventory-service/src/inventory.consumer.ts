@@ -57,6 +57,7 @@ export class InventoryConsumer implements OnModuleInit, OnModuleDestroy {
         payload.title,
         payload.author,
         payload.totalCopies,
+        payload.coverUrl,
       );
       this.logger.debug(`created inventory record from ${log}`);
     } else if (event.eventType === BOOK_RENTED) {

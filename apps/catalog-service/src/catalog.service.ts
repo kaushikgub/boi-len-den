@@ -86,6 +86,7 @@ export class CatalogService {
       title: book.title,
       author: book.author,
       totalCopies,
+      ...(book.coverUrl ? { coverUrl: book.coverUrl } : {}),
     };
     const envelope = buildEnvelope(BOOK_CREATED, 1, book.id, correlationId, payload);
     const outboxRepo = manager.getRepository(OutboxMessage);

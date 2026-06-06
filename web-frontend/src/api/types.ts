@@ -18,6 +18,7 @@ export interface Book {
   author: string;
   totalCopies: number;
   availableCopies: number;
+  coverUrl: string | null;
 }
 
 /** Richer book record owned by catalog-service. Does not include availability counts. */

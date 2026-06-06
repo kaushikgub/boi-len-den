@@ -56,13 +56,14 @@ export class InventoryService {
     title: string,
     author: string,
     totalCopies: number,
+    coverUrl?: string | null,
   ): Promise<void> {
     await this.dataSource
       .getRepository(Book)
       .createQueryBuilder()
       .insert()
       .into(Book)
-      .values({ id: bookId, title, author, totalCopies, availableCopies: totalCopies })
+      .values({ id: bookId, title, author, totalCopies, availableCopies: totalCopies, coverUrl: coverUrl ?? null })
       .orIgnore()
       .execute();
   }

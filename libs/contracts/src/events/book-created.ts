@@ -5,10 +5,9 @@ export const BOOK_CREATED = 'BookCreated' as const;
 export interface BookCreatedPayload {
   bookId: string;
   title: string;
-  /** Denormalized into inventory so it can display the title until Slice 2 Step 3
-   *  migrates book-reads fully to catalog. */
   author: string;
   totalCopies: number;
+  coverUrl?: string | null;
 }
 
 export type BookCreatedEvent = EventEnvelope<typeof BOOK_CREATED, BookCreatedPayload>;
@@ -28,6 +27,7 @@ export const BookCreatedSchema = {
         title: { type: 'string', minLength: 1 },
         author: { type: 'string', minLength: 1 },
         totalCopies: { type: 'integer', minimum: 1 },
+        coverUrl: { type: 'string', minLength: 1 },
       },
       required: ['bookId', 'title', 'author', 'totalCopies'],
     },

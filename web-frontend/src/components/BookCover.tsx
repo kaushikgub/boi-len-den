@@ -1,26 +1,55 @@
 import { Box } from '@mui/material';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 
-/** Deterministic hue from a string so each title gets a stable colour. */
 function hashHue(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
   return h;
 }
 
-/**
- * A generated gradient "cover" standing in for real cover art (which catalog-service
- * will own later). Stable per title, with the title overlaid.
- */
 export function BookCover({
   title,
+  coverUrl,
   height = 180,
   showTitle = true,
 }: {
   title: string;
+  coverUrl?: string | null;
   height?: number;
   showTitle?: boolean;
 }) {
+  if (coverUrl) {
+    return (
+      <Box
+        sx={{
+          height,
+          borderRadius: 2,
+          overflow: 'hidden',
+          position: 'relative',
+          bgcolor: 'grey.100',
+        }}
+      >
+        <Box
+          component="img"
+          src={coverUrl}
+          alt={title}
+          onError={(e) => {
+            // Fall back to gradient on broken image
+            const el = e.currentTarget as HTMLImageElement;
+            el.style.display = 'none';
+            if (el.parentElement) el.parentElement.dataset.fallback = 'true';
+          }}
+          sx={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+          }}
+        />
+      </Box>
+    );
+  }
+
   const h1 = hashHue(title);
   const h2 = (h1 + 45) % 360;
   return (

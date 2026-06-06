@@ -95,7 +95,7 @@ export function CatalogPage() {
                 <Card sx={{ height: '100%', transition: 'box-shadow .2s, transform .2s', '&:hover': { boxShadow: 6, transform: 'translateY(-2px)' } }}>
                   <CardActionArea onClick={() => navigate(`/books/${book.id}`)} sx={{ height: '100%' }}>
                     <Box sx={{ p: 1.5, pb: 0 }}>
-                      <BookCover title={book.title} />
+                      <BookCover title={book.title} coverUrl={book.coverUrl} />
                     </Box>
                     <CardContent>
                       <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.3 }} noWrap>

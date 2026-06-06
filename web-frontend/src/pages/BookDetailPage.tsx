@@ -65,7 +65,7 @@ export function BookDetailPage() {
         ) : (
           <Grid container spacing={4}>
             <Grid item xs={12} sm={4}>
-              <BookCover title={book.title} height={260} showTitle={false} />
+              <BookCover title={book.title} coverUrl={book.coverUrl} height={260} showTitle={false} />
             </Grid>
             <Grid item xs={12} sm={8}>
               <Typography variant="h4" gutterBottom>

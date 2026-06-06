@@ -24,4 +24,7 @@ export class Book {
 
   @Column({ name: 'available_copies', type: 'int' })
   availableCopies!: number;
+
+  @Column({ name: 'cover_url', type: 'text', nullable: true, default: null })
+  coverUrl!: string | null;
 }
