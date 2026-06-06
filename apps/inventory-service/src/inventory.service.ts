@@ -50,6 +50,23 @@ export class InventoryService {
     );
   }
 
+  /** Idempotent: ON CONFLICT (id) DO NOTHING. A redelivered BookCreated event is a no-op. */
+  async createBookFromEvent(
+    bookId: string,
+    title: string,
+    author: string,
+    totalCopies: number,
+  ): Promise<void> {
+    await this.dataSource
+      .getRepository(Book)
+      .createQueryBuilder()
+      .insert()
+      .into(Book)
+      .values({ id: bookId, title, author, totalCopies, availableCopies: totalCopies })
+      .orIgnore()
+      .execute();
+  }
+
   /**
    * Atomically reserve one copy. This is THE last-copy guard:
    *  1. Insert the reservation (ON CONFLICT DO NOTHING) → idempotent on retries.

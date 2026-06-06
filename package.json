@@ -8,14 +8,15 @@
   },
   "scripts": {
     "build": "nest build",
-    "build:all": "nest build api-gateway && nest build auth-service && nest build rental-service && nest build inventory-service",
+    "build:all": "nest build api-gateway && nest build auth-service && nest build rental-service && nest build inventory-service && nest build catalog-service",
     "start:gateway": "nest start api-gateway --watch",
     "start:auth": "nest start auth-service --watch",
     "start:rental": "nest start rental-service --watch",
     "start:inventory": "nest start inventory-service --watch",
+    "start:catalog": "nest start catalog-service --watch",
     "test": "jest",
     "test:int": "jest --config ./jest.int.config.js",
-    "infra:up": "docker compose up -d postgres-auth postgres-rental postgres-inventory redis kafka schema-registry kafka-init",
+    "infra:up": "docker compose up -d postgres-auth postgres-rental postgres-inventory postgres-catalog redis kafka schema-registry kafka-init",
     "infra:down": "docker compose down -v",
     "lint": "eslint \"{apps,libs}/**/*.ts\" --fix",
     "format": "prettier --write \"{apps,libs}/**/*.ts\""

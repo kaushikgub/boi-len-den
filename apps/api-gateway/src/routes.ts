@@ -38,4 +38,11 @@ export const ROUTES: RouteDef[] = [
     rewriteTo: '/rentals',
     protected: true,
   },
+  {
+    prefix: '/api/catalog',
+    targetEnv: 'CATALOG_SERVICE_URL',
+    targetDefault: 'http://localhost:3004',
+    rewriteTo: '/catalog',
+    protected: true,
+  },
 ];

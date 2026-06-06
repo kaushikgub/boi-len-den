@@ -58,6 +58,22 @@ services:
       timeout: 5s
       retries: 10
 
+  postgres-catalog:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: catalog
+      POSTGRES_PASSWORD: catalog
+      POSTGRES_DB: catalog
+    ports:
+      - '5436:5432'
+    volumes:
+      - pg-catalog-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U catalog -d catalog']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   # ---- Redis: revocation denylist, cache, reservation gate, rate limiting -----
   redis:
     image: redis:7-alpine
@@ -132,6 +148,8 @@ services:
         set -e
         echo "Creating topics..."
         kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+          --topic book-created --partitions 6 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
           --topic book-rented --partitions 6 --replication-factor 1
         kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
           --topic book-returned --partitions 6 --replication-factor 1
@@ -143,5 +161,6 @@ volumes:
   pg-auth-data:
   pg-rental-data:
   pg-inventory-data:
+  pg-catalog-data:
   redis-data:
   kafka-data:

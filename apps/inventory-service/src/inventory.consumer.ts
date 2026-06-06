@@ -2,8 +2,10 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { Consumer } from 'kafkajs';
 import { KafkaService } from '@app/common';
 import {
+  BOOK_CREATED,
   BOOK_RENTED,
   BOOK_RETURNED,
+  BookCreatedEvent,
   BookRentedEvent,
   BookReturnedEvent,
   EventEnvelope,
@@ -32,7 +34,7 @@ export class InventoryConsumer implements OnModuleInit, OnModuleDestroy {
     this.consumer = this.kafka.createConsumer('inventory-service');
     await this.consumer.connect();
     await this.consumer.subscribe({
-      topics: [TOPICS.BOOK_RENTED, TOPICS.BOOK_RETURNED],
+      topics: [TOPICS.BOOK_CREATED, TOPICS.BOOK_RENTED, TOPICS.BOOK_RETURNED],
       fromBeginning: true,
     });
     await this.consumer.run({
@@ -48,7 +50,16 @@ export class InventoryConsumer implements OnModuleInit, OnModuleDestroy {
   /** Route a decoded event to the right idempotent handler. Public for testing. */
   async handleEvent(topic: string, event: EventEnvelope): Promise<void> {
     const log = `${event.eventType} eventId=${event.eventId} correlationId=${event.correlationId}`;
-    if (event.eventType === BOOK_RENTED) {
+    if (event.eventType === BOOK_CREATED) {
+      const { payload } = event as BookCreatedEvent;
+      await this.inventory.createBookFromEvent(
+        payload.bookId,
+        payload.title,
+        payload.author,
+        payload.totalCopies,
+      );
+      this.logger.debug(`created inventory record from ${log}`);
+    } else if (event.eventType === BOOK_RENTED) {
       const { payload } = event as BookRentedEvent;
       await this.inventory.confirm(payload.reservationId, payload.rentalId);
       this.logger.debug(`confirmed reservation from ${log}`);
