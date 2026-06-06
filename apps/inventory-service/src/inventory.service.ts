@@ -50,6 +50,14 @@ export class InventoryService {
     );
   }
 
+  async deleteBook(id: string): Promise<void> {
+    const repo = this.dataSource.getRepository(Book);
+    const book = await repo.findOne({ where: { id } });
+    if (!book) throw new NotFoundException('Book not found');
+    await repo.delete({ id });
+    this.logger.log(`deleted book ${id} "${book.title}" from inventory`);
+  }
+
   /** Idempotent: ON CONFLICT (id) DO NOTHING. A redelivered BookCreated event is a no-op. */
   async createBookFromEvent(
     bookId: string,

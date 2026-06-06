@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsInt,
   IsOptional,
   IsString,
@@ -40,4 +41,10 @@ export class CreateBookDto {
   @IsInt()
   @Min(1)
   publishedYear?: number;
+}
+
+export class UpdateBookDto {
+  @IsOptional()
+  @IsBoolean()
+  isHidden?: boolean;
 }

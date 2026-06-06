@@ -1,24 +1,84 @@
 import { FormEvent, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import {
   Alert,
+  Avatar,
   Box,
   Button,
+  Chip,
   Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
+  IconButton,
   Paper,
+  Skeleton,
   Snackbar,
   Stack,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tabs,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
-import { createBook } from '../api/books';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import {
+  createBook,
+  deleteCatalogBook,
+  deleteInventoryBook,
+  getCatalogBooksAdmin,
+  patchCatalogBook,
+} from '../api/books';
+import { CatalogBook } from '../api/types';
 import { queryKeys } from '../queryKeys';
 
-export function AdminBooksPage() {
-  const queryClient = useQueryClient();
+const ADMIN_BOOKS_KEY = ['catalog-books-admin'];
 
+export function AdminBooksPage() {
+  const [tab, setTab] = useState(0);
+
+  return (
+    <Box>
+      <Typography variant="h5" gutterBottom>
+        Book Management
+      </Typography>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>
+        Add new books to the catalog or manage existing ones.
+      </Typography>
+
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
+      >
+        <Tab label="Add Book" icon={<AddIcon />} iconPosition="start" />
+        <Tab label="Manage Books" icon={<MenuBookIcon />} iconPosition="start" />
+      </Tabs>
+
+      {tab === 0 && <AddBookForm />}
+      {tab === 1 && <ManageBooks />}
+    </Box>
+  );
+}
+
+/* ─── Add Book Form ────────────────────────────────────────────────────────── */
+
+function AddBookForm() {
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [totalCopies, setTotalCopies] = useState(1);
@@ -44,6 +104,8 @@ export function AdminBooksPage() {
       }),
     onSuccess: (book) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.books });
+      queryClient.invalidateQueries({ queryKey: queryKeys.catalogBooks });
+      queryClient.invalidateQueries({ queryKey: ADMIN_BOOKS_KEY });
       setToast(`Added "${book.title}" — inventory updating via event stream`);
       setTitle('');
       setAuthor('');
@@ -64,13 +126,7 @@ export function AdminBooksPage() {
   }
 
   return (
-    <Box>
-      <Typography variant="h5" gutterBottom>
-        Add a Book
-      </Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>
-        Creates the book in the catalog and notifies inventory via event stream.
-      </Typography>
+    <>
       <Paper sx={{ p: 4, maxWidth: 540 }}>
         <form onSubmit={onSubmit}>
           <Stack spacing={2}>
@@ -81,7 +137,6 @@ export function AdminBooksPage() {
                   : (error.response?.data?.message ?? 'Could not add the book.')}
               </Alert>
             )}
-
             <TextField
               label="Title"
               value={title}
@@ -105,7 +160,6 @@ export function AdminBooksPage() {
               onChange={(e) => setTotalCopies(Math.max(1, Number(e.target.value)))}
               required
             />
-
             <Divider
               component="button"
               type="button"
@@ -122,7 +176,6 @@ export function AdminBooksPage() {
             >
               {showOptional ? '▾ Hide optional fields' : '▸ Add ISBN, description, genre…'}
             </Divider>
-
             <Collapse in={showOptional}>
               <Stack spacing={2}>
                 <TextField
@@ -162,7 +215,6 @@ export function AdminBooksPage() {
                 />
               </Stack>
             </Collapse>
-
             <Button type="submit" variant="contained" size="large" disabled={add.isPending}>
               {add.isPending ? 'Adding…' : 'Add book'}
             </Button>
@@ -176,6 +228,248 @@ export function AdminBooksPage() {
         message={toast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
-    </Box>
+    </>
+  );
+}
+
+/* ─── Manage Books ──────────────────────────────────────────────────────────── */
+
+function ManageBooks() {
+  const queryClient = useQueryClient();
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [confirmBook, setConfirmBook] = useState<CatalogBook | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const { data: books, isLoading, isError } = useQuery({
+    queryKey: ADMIN_BOOKS_KEY,
+    queryFn: () => getCatalogBooksAdmin(),
+    staleTime: 0,
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ADMIN_BOOKS_KEY });
+    queryClient.invalidateQueries({ queryKey: queryKeys.catalogBooks });
+    queryClient.invalidateQueries({ queryKey: queryKeys.books });
+  };
+
+  const toggleHide = useMutation({
+    mutationFn: ({ id, isHidden }: { id: string; isHidden: boolean }) =>
+      patchCatalogBook(id, { isHidden }),
+    onMutate: ({ id }) => setPendingId(id),
+    onSuccess: (book) => {
+      setToast(book.isHidden ? `"${book.title}" hidden from catalog.` : `"${book.title}" visible again.`);
+      invalidate();
+    },
+    onSettled: () => setPendingId(null),
+  });
+
+  const deleteBook = useMutation({
+    mutationFn: async (id: string) => {
+      await deleteCatalogBook(id);
+      // Best-effort: also remove from inventory (may 404 if not there)
+      await deleteInventoryBook(id).catch(() => undefined);
+    },
+    onMutate: (id) => setPendingId(id),
+    onSuccess: () => {
+      setToast('Book deleted.');
+      setConfirmBook(null);
+      invalidate();
+    },
+    onSettled: () => setPendingId(null),
+  });
+
+  if (isError) return <Alert severity="error">Failed to load books.</Alert>;
+
+  return (
+    <>
+      <TableContainer component={Paper}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ width: 56 }} />
+              <TableCell>Title / Author</TableCell>
+              <TableCell>Genre</TableCell>
+              <TableCell align="center">Copies</TableCell>
+              <TableCell align="center">Status</TableCell>
+              <TableCell align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {isLoading
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton variant="rectangular" width={40} height={56} sx={{ borderRadius: 1 }} /></TableCell>
+                    <TableCell><Skeleton width="70%" /><Skeleton width="40%" /></TableCell>
+                    <TableCell><Skeleton width="60%" /></TableCell>
+                    <TableCell><Skeleton width={32} sx={{ mx: 'auto' }} /></TableCell>
+                    <TableCell><Skeleton width={64} sx={{ mx: 'auto' }} /></TableCell>
+                    <TableCell><Skeleton width={80} sx={{ ml: 'auto' }} /></TableCell>
+                  </TableRow>
+                ))
+              : (books ?? []).map((book) => {
+                  const busy = pendingId === book.id;
+                  return (
+                    <TableRow
+                      key={book.id}
+                      sx={{ opacity: book.isHidden ? 0.55 : 1, transition: 'opacity .2s' }}
+                    >
+                      {/* Cover thumbnail */}
+                      <TableCell sx={{ py: 1 }}>
+                        <BookThumb book={book} />
+                      </TableCell>
+
+                      {/* Title + author */}
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={600} noWrap sx={{ maxWidth: 220 }}>
+                          {book.title}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap>
+                          {book.author}
+                        </Typography>
+                      </TableCell>
+
+                      {/* Genre */}
+                      <TableCell>
+                        {book.genre ? (
+                          <Chip
+                            label={book.genre}
+                            size="small"
+                            sx={{
+                              fontSize: 11,
+                              height: 20,
+                              bgcolor: 'rgba(79,70,229,0.1)',
+                              color: '#4f46e5',
+                              fontWeight: 700,
+                              '& .MuiChip-label': { px: 0.75 },
+                            }}
+                          />
+                        ) : (
+                          <Typography variant="caption" color="text.disabled">—</Typography>
+                        )}
+                      </TableCell>
+
+                      {/* Copies */}
+                      <TableCell align="center">
+                        <Typography variant="body2">{book.totalCopies}</Typography>
+                      </TableCell>
+
+                      {/* Visibility status */}
+                      <TableCell align="center">
+                        <Chip
+                          label={book.isHidden ? 'Hidden' : 'Visible'}
+                          size="small"
+                          color={book.isHidden ? 'default' : 'success'}
+                          variant={book.isHidden ? 'outlined' : 'filled'}
+                          sx={book.isHidden ? undefined : { color: '#fff' }}
+                        />
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <Tooltip title={book.isHidden ? 'Make visible' : 'Hide from catalog'}>
+                            <span>
+                              <IconButton
+                                size="small"
+                                disabled={busy}
+                                onClick={() => toggleHide.mutate({ id: book.id, isHidden: !book.isHidden })}
+                              >
+                                {book.isHidden
+                                  ? <VisibilityIcon fontSize="small" />
+                                  : <VisibilityOffIcon fontSize="small" />}
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          <Tooltip title="Delete permanently">
+                            <span>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                disabled={busy}
+                                onClick={() => setConfirmBook(book)}
+                              >
+                                <DeleteOutlineIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!confirmBook} onClose={() => setConfirmBook(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete book?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            <strong>"{confirmBook?.title}"</strong> will be permanently removed from the catalog and
+            inventory. Active rentals will not be affected.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setConfirmBook(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={deleteBook.isPending}
+            onClick={() => confirmBook && deleteBook.mutate(confirmBook.id)}
+          >
+            {deleteBook.isPending ? 'Deleting…' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={3500}
+        onClose={() => setToast(null)}
+        message={toast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
+    </>
+  );
+}
+
+/* ─── Book thumbnail ────────────────────────────────────────────────────────── */
+
+function hashHue(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return h;
+}
+
+function BookThumb({ book }: { book: CatalogBook }) {
+  const h = hashHue(book.title);
+  const h2 = (h + 45) % 360;
+
+  if (book.coverUrl) {
+    return (
+      <Avatar
+        src={book.coverUrl}
+        variant="rounded"
+        sx={{ width: 40, height: 56 }}
+        imgProps={{ onError: (e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; } }}
+      />
+    );
+  }
+
+  return (
+    <Avatar
+      variant="rounded"
+      sx={{
+        width: 40,
+        height: 56,
+        background: `linear-gradient(135deg, hsl(${h} 62% 52%), hsl(${h2} 68% 38%))`,
+        fontSize: 10,
+        fontWeight: 700,
+        color: '#fff',
+      }}
+    >
+      {book.title.slice(0, 2).toUpperCase()}
+    </Avatar>
   );
 }

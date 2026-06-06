@@ -15,7 +15,8 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8001)",
       "Bash(git -C /Users/kaushik/Mine/Projects/boi-len-den add docker-compose.yml)",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('name:', d.get\\('name'\\)\\); [print\\(k\\) for k in d.get\\('scripts',{}\\)]\")"
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('name:', d.get\\('name'\\)\\); [print\\(k\\) for k in d.get\\('scripts',{}\\)]\")",
+      "Bash(pnpm --version)"
     ]
   }
 }

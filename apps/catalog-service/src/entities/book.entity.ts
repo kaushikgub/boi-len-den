@@ -46,6 +46,9 @@ export class Book {
   })
   searchVector!: string | null;
 
+  @Column({ name: 'is_hidden', type: 'boolean', default: false })
+  isHidden!: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 }

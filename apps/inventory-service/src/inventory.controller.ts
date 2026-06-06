@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard, Roles, RolesGuard } from '@app/common';
 import { InventoryService } from './inventory.service';
 import { CreateBookDto } from './dto';
@@ -27,5 +37,12 @@ export class InventoryController {
   @Roles('librarian', 'admin')
   create(@Body() dto: CreateBookDto) {
     return this.inventory.createBook(dto);
+  }
+
+  @Delete(':id')
+  @Roles('librarian', 'admin')
+  @HttpCode(204)
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    await this.inventory.deleteBook(id);
   }
 }

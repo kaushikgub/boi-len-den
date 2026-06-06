@@ -6,7 +6,7 @@ import { BOOK_CREATED, BookCreatedPayload, TOPICS } from '@app/contracts';
 import { Book } from './entities/book.entity';
 import { OutboxMessage } from './entities/outbox.entity';
 import { buildEnvelope } from './outbox/envelope.factory';
-import { CreateBookDto } from './dto';
+import { CreateBookDto, UpdateBookDto } from './dto';
 
 const LIST_KEY = 'catalog:books:list';
 const bookKey = (id: string) => `catalog:book:${id}`;
@@ -25,9 +25,17 @@ export class CatalogService {
   async listBooks(): Promise<Book[]> {
     const cached = await this.redis.client.get(LIST_KEY);
     if (cached) return JSON.parse(cached) as Book[];
-    const books = await this.dataSource.getRepository(Book).find({ order: { title: 'ASC' } });
+    const books = await this.dataSource.getRepository(Book).find({
+      where: { isHidden: false },
+      order: { title: 'ASC' },
+    });
     await this.redis.client.setex(LIST_KEY, LIST_TTL, JSON.stringify(books));
     return books;
+  }
+
+  /** Admin view — returns all books including hidden ones. No cache. */
+  listAllBooks(): Promise<Book[]> {
+    return this.dataSource.getRepository(Book).find({ order: { title: 'ASC' } });
   }
 
   async getBook(id: string): Promise<Book> {
@@ -48,6 +56,27 @@ export class CatalogService {
       .orderBy(`ts_rank(b.search_vector, plainto_tsquery('english', :q))`, 'DESC')
       .setParameter('q', q.trim())
       .getMany();
+  }
+
+  async updateBook(id: string, dto: UpdateBookDto): Promise<Book> {
+    const repo = this.dataSource.getRepository(Book);
+    const book = await repo.findOne({ where: { id } });
+    if (!book) throw new NotFoundException('Book not found');
+    Object.assign(book, dto);
+    const saved = await repo.save(book);
+    await this.redis.client.del(LIST_KEY);
+    await this.redis.client.del(bookKey(id));
+    return saved;
+  }
+
+  async deleteBook(id: string): Promise<void> {
+    const repo = this.dataSource.getRepository(Book);
+    const book = await repo.findOne({ where: { id } });
+    if (!book) throw new NotFoundException('Book not found');
+    await repo.delete({ id });
+    await this.redis.client.del(LIST_KEY);
+    await this.redis.client.del(bookKey(id));
+    this.logger.log(`deleted book ${id} "${book.title}"`);
   }
 
   async createBook(dto: CreateBookDto, correlationId: string): Promise<Book> {

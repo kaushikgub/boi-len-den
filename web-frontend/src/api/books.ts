@@ -11,9 +11,36 @@ export async function getBook(id: string): Promise<Book> {
   return data;
 }
 
+export async function getCatalogBooks(): Promise<CatalogBook[]> {
+  const { data } = await api.get<CatalogBook[]>('/catalog/books');
+  return data;
+}
+
+/** Admin only — returns all books including hidden ones. */
+export async function getCatalogBooksAdmin(): Promise<CatalogBook[]> {
+  const { data } = await api.get<CatalogBook[]>('/catalog/books', { params: { includeHidden: 'true' } });
+  return data;
+}
+
 export async function getCatalogBook(id: string): Promise<CatalogBook> {
   const { data } = await api.get<CatalogBook>(`/catalog/books/${id}`);
   return data;
+}
+
+export async function patchCatalogBook(
+  id: string,
+  patch: { isHidden?: boolean },
+): Promise<CatalogBook> {
+  const { data } = await api.patch<CatalogBook>(`/catalog/books/${id}`, patch);
+  return data;
+}
+
+export async function deleteCatalogBook(id: string): Promise<void> {
+  await api.delete(`/catalog/books/${id}`);
+}
+
+export async function deleteInventoryBook(id: string): Promise<void> {
+  await api.delete(`/books/${id}`);
 }
 
 export async function searchCatalog(q: string): Promise<CatalogBook[]> {

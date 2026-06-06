@@ -32,6 +32,7 @@ export interface CatalogBook {
   genre: string | null;
   coverUrl: string | null;
   publishedYear: number | null;
+  isHidden: boolean;
   createdAt: string;
 }
 
