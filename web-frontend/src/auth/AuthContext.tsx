@@ -28,21 +28,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // On load the in-memory access token is gone (by design), but the HttpOnly
   // refresh cookie may still be valid — try once to silently restore the session.
   useEffect(() => {
+    // The ref guard already ensures this runs once (incl. under StrictMode's
+    // double-invoke). We deliberately DON'T cancel on cleanup: cancelling would
+    // strand the only in-flight refresh and leave status stuck on 'loading'.
     if (bootstrapped.current) return;
     bootstrapped.current = true;
-    let active = true;
     authApi
       .refresh()
       .then((res) => {
-        if (!active) return;
         setAccessToken(res.accessToken);
         setUser(res.user);
         setStatus('authed');
       })
-      .catch(() => active && setStatus('anon'));
-    return () => {
-      active = false;
-    };
+      .catch(() => setStatus('anon')); // no cookie / expired → show login
   }, []);
 
   // When the interceptor's refresh ultimately fails, drop to anonymous.
