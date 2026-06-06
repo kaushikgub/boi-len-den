@@ -3,25 +3,21 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  Card,
+  Skeleton,
+  Stack,
   Typography,
 } from '@mui/material';
+import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import { getBooks } from '../api/books';
 import { getMyRentals, returnBook } from '../api/rentals';
 import { queryKeys } from '../queryKeys';
 import { StatusChip } from '../components/StatusChip';
+import { BookCover } from '../components/BookCover';
 
 export function MyRentalsPage() {
   const queryClient = useQueryClient();
 
-  // Rentals carry only bookId; fetch books too and map id -> title for display.
   const [rentalsQ, booksQ] = useQueries({
     queries: [
       { queryKey: queryKeys.myRentals, queryFn: getMyRentals },
@@ -37,64 +33,68 @@ export function MyRentalsPage() {
     },
   });
 
-  if (rentalsQ.isLoading || booksQ.isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-  if (rentalsQ.isError) return <Alert severity="error">Failed to load your rentals.</Alert>;
-
+  const loading = rentalsQ.isLoading || booksQ.isLoading;
   const titleById = new Map((booksQ.data ?? []).map((b) => [b.id, b.title]));
   const rentals = rentalsQ.data ?? [];
 
   return (
     <Box>
-      <Typography variant="h5" gutterBottom>
+      <Typography variant="h4" gutterBottom>
         My Rentals
       </Typography>
-      {rentals.length === 0 ? (
-        <Alert severity="info">You haven't rented anything yet.</Alert>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>
+        Books you've borrowed. Return them when you're done.
+      </Typography>
+
+      {rentalsQ.isError && <Alert severity="error">Failed to load your rentals.</Alert>}
+
+      {loading ? (
+        <Stack spacing={1.5}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} variant="rounded" height={88} />
+          ))}
+        </Stack>
+      ) : rentals.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+          <LibraryBooksIcon sx={{ fontSize: 56, opacity: 0.3 }} />
+          <Typography sx={{ mt: 1 }}>You haven't rented anything yet.</Typography>
+        </Box>
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Book</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Due</TableCell>
-                <TableCell align="right">Action</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rentals.map((r) => {
-                const outstanding = r.status === 'ACTIVE' || r.status === 'OVERDUE';
-                return (
-                  <TableRow key={r.id}>
-                    <TableCell>{titleById.get(r.bookId) ?? r.bookId}</TableCell>
-                    <TableCell>
-                      <StatusChip status={r.status} />
-                    </TableCell>
-                    <TableCell>{new Date(r.dueAt).toLocaleDateString()}</TableCell>
-                    <TableCell align="right">
-                      {outstanding && (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          disabled={ret.isPending && ret.variables === r.id}
-                          onClick={() => ret.mutate(r.id)}
-                        >
-                          {ret.isPending && ret.variables === r.id ? 'Returning…' : 'Return'}
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <Stack spacing={1.5}>
+          {rentals.map((r) => {
+            const title = titleById.get(r.bookId) ?? r.bookId;
+            const outstanding = r.status === 'ACTIVE' || r.status === 'OVERDUE';
+            const returning = ret.isPending && ret.variables === r.id;
+            return (
+              <Card key={r.id} sx={{ display: 'flex', alignItems: 'center', p: 1.5, gap: 2 }}>
+                <Box sx={{ width: 52, flexShrink: 0 }}>
+                  <BookCover title={title} height={68} showTitle={false} />
+                </Box>
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 600 }} noWrap>
+                    {title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Due {new Date(r.dueAt).toLocaleDateString()}
+                  </Typography>
+                </Box>
+                <StatusChip status={r.status} />
+                <Box sx={{ width: 96, textAlign: 'right' }}>
+                  {outstanding && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      disabled={returning}
+                      onClick={() => ret.mutate(r.id)}
+                    >
+                      {returning ? 'Returning…' : 'Return'}
+                    </Button>
+                  )}
+                </Box>
+              </Card>
+            );
+          })}
+        </Stack>
       )}
     </Box>
   );
