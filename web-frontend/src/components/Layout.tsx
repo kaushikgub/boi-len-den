@@ -20,6 +20,7 @@ import { useTheme } from '@mui/material/styles';
 import MenuIcon from '@mui/icons-material/Menu';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import AddBoxIcon from '@mui/icons-material/AddBox';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
@@ -39,6 +40,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const nav = [
     { to: '/', label: 'Catalog', icon: <MenuBookIcon /> },
     { to: '/rentals', label: 'My Rentals', icon: <LibraryBooksIcon /> },
+    { to: '/payments', label: 'Payments', icon: <ReceiptLongIcon /> },
     ...(hasRole('librarian', 'admin')
       ? [{ to: '/admin/books', label: 'Add Book', icon: <AddBoxIcon /> }]
       : []),

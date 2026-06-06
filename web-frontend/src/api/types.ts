@@ -38,6 +38,19 @@ export interface CatalogBook {
 
 export type RentalStatus = 'RESERVED' | 'ACTIVE' | 'OVERDUE' | 'RETURNED' | 'CANCELLED';
 
+export type PaymentStatus = 'CHARGED' | 'REFUNDED';
+
+export interface Payment {
+  id: string;
+  rentalId: string;
+  bookId: string;
+  userId: string;
+  amountCents: number;
+  status: PaymentStatus;
+  chargedAt: string;
+  refundedAt: string | null;
+}
+
 export interface Rental {
   id: string;
   bookId: string;

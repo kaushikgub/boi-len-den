@@ -44,18 +44,16 @@ Book rental platform built as NestJS microservices. Read this before touching an
 | 6 | Frontend: overdue banner on MyRentalsPage showing count of overdue books | ✅ |
 | 7 | Integration tests: overdue job marks correct rentals; notification consumer dedupes correctly | ✅ |
 
-### Slice 4 — payment-service (idempotent charges) 🔲 PENDING
+### Slice 4 — payment-service (idempotent charges) ✅ DONE
 
-Planned steps:
-
-| Step | What |
-|---|---|
-| 1 | `payment-service` (port 3006, postgres-payment :5438): mock charge on rent (fixed fee), mock refund on return |
-| 2 | `PaymentCharged` / `PaymentRefunded` event contracts |
-| 3 | rental-service subscribes to `PaymentCharged` to confirm the rental (or cancel if payment fails within TTL) — introduces a saga: reserve → charge → confirm or rollback |
-| 4 | Idempotent charge: `payments` table with `rental_id` unique constraint; duplicate charge request is a no-op |
-| 5 | Payment history page in frontend |
-| 6 | Stripe integration (optional — swap mock for real Stripe webhook handler) |
+| Step | What | Status |
+|---|---|---|
+| 1 | `payment-service` (port 3006, postgres-payment :5438): mock charge ($5 fixed fee) on rent, mock refund on return | ✅ |
+| 2 | `PaymentCharged` / `PaymentRefunded` event contracts in `libs/contracts` | ✅ |
+| 3 | `PaymentConfirmedConsumer` in rental-service: consumes `payment-charged` → RESERVED → ACTIVE; rent() now creates RESERVED | ✅ |
+| 4 | Idempotent charge: `payments` table with `rental_id` UNIQUE; dedup via `processed_events` in same tx | ✅ |
+| 5 | Payment history page in frontend (`/payments`, sidebar nav link) | ✅ |
+| 6 | Stripe integration (optional — swap mock for real Stripe webhook handler) | 🔲 |
 
 ### Slice 5 — Kubernetes + Helm 🔲 PENDING
 
@@ -92,6 +90,7 @@ Planned steps:
 | rental-service | 3002 | postgres-rental :5434 | rent/return lifecycle, transactional outbox |
 | inventory-service | 3003 | postgres-inventory :5435 | copy counts, reservation holds, BookRented/Returned/Created consumer |
 | catalog-service | 3004 | postgres-catalog :5436 | book metadata, FTS (tsvector GIN), Redis cache-aside, BookCreated outbox |
+| payment-service | 3006 | postgres-payment :5438 | mock charges/refunds, idempotent via rental_id UNIQUE, PaymentCharged/Refunded outbox |
 | web-frontend | 5173 | — | React SPA — nginx in Docker, Vite dev-server on host |
 | kafka-ui | 8080 | — | topics, messages, consumer groups, Schema Registry |
 | RedisInsight | 8001 | — | browse Redis keys |

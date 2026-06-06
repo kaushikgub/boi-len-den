@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { CatalogPage } from './pages/CatalogPage';
 import { BookDetailPage } from './pages/BookDetailPage';
 import { MyRentalsPage } from './pages/MyRentalsPage';
+import { PaymentsPage } from './pages/PaymentsPage';
 import { AdminBooksPage } from './pages/AdminBooksPage';
 import { Role } from './api/types';
 
@@ -25,6 +26,7 @@ export default function App() {
       <Route path="/" element={<Protected><CatalogPage /></Protected>} />
       <Route path="/books/:id" element={<Protected><BookDetailPage /></Protected>} />
       <Route path="/rentals" element={<Protected><MyRentalsPage /></Protected>} />
+      <Route path="/payments" element={<Protected><PaymentsPage /></Protected>} />
       <Route
         path="/admin/books"
         element={

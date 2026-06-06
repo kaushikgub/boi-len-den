@@ -95,7 +95,7 @@ export class RentalsService {
   ): Promise<Rental> {
     const dueAt = new Date(Date.now() + this.periodMs);
     const rental = await m.save(
-      m.create(Rental, { userId, bookId, reservationId, status: 'ACTIVE', dueAt }),
+      m.create(Rental, { userId, bookId, reservationId, status: 'RESERVED', dueAt }),
     );
     const event = buildEnvelope(BOOK_RENTED, 1, bookId, correlationId, {
       rentalId: rental.id,

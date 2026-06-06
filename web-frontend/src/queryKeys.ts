@@ -5,4 +5,5 @@ export const queryKeys = {
   catalogBooks: ['catalog-books'] as const,
   catalogBook: (id: string) => ['catalog-books', id] as const,
   myRentals: ['rentals', 'mine'] as const,
+  myPayments: ['payments', 'mine'] as const,
 };

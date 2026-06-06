@@ -45,4 +45,11 @@ export const ROUTES: RouteDef[] = [
     rewriteTo: '/catalog',
     protected: true,
   },
+  {
+    prefix: '/api/payments',
+    targetEnv: 'PAYMENT_SERVICE_URL',
+    targetDefault: 'http://localhost:3006',
+    rewriteTo: '/payments',
+    protected: true,
+  },
 ];
