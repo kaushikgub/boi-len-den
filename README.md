@@ -76,7 +76,10 @@ curl -i localhost:3000/health          # → {"status":"ok",...} + x-correlation
 ## Testing
 
 ```bash
-pnpm test          # unit + integration (Jest)
+pnpm test          # hermetic unit tests (no infra needed)
+pnpm test:int      # integration tests — requires `pnpm infra:up` first.
+                   # Includes the milestone: 50 concurrent reservers on the last
+                   # copy -> exactly one wins, availability never goes negative.
 ```
 
 ## Generate JWT signing keys (needed from Step 2)

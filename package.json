@@ -14,7 +14,7 @@
     "start:rental": "nest start rental-service --watch",
     "start:inventory": "nest start inventory-service --watch",
     "test": "jest",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:int": "jest --config ./jest.int.config.js",
     "infra:up": "docker compose up -d postgres-auth postgres-rental postgres-inventory redis kafka schema-registry kafka-init",
     "infra:down": "docker compose down -v",
     "lint": "eslint \"{apps,libs}/**/*.ts\" --fix",
