@@ -8,3 +8,5 @@ export * from './auth/jwt-auth.guard';
 export * from './auth/roles.guard';
 export * from './auth/current-user.decorator';
 export * from './auth/jwt.module';
+export * from './kafka/kafka.service';
+export * from './kafka/kafka.module';
