@@ -41,13 +41,12 @@ export class CatalogService {
 
   async searchBooks(q: string): Promise<Book[]> {
     if (!q.trim()) return this.listBooks();
-    // ILIKE search for now; Step 5 upgrades to pg_tsvector FTS with GIN index.
-    const term = `%${q.trim()}%`;
     return this.dataSource
       .getRepository(Book)
       .createQueryBuilder('b')
-      .where('b.title ILIKE :term OR b.author ILIKE :term', { term })
-      .orderBy('b.title', 'ASC')
+      .where(`b.search_vector @@ plainto_tsquery('english', :q)`, { q: q.trim() })
+      .orderBy(`ts_rank(b.search_vector, plainto_tsquery('english', :q))`, 'DESC')
+      .setParameter('q', q.trim())
       .getMany();
   }
 

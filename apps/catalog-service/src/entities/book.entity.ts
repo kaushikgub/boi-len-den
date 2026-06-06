@@ -30,6 +30,22 @@ export class Book {
   @Column({ name: 'total_copies', type: 'int' })
   totalCopies!: number;
 
+  /**
+   * Generated tsvector column kept in sync by Postgres automatically.
+   * Queried with `@@ plainto_tsquery('english', :q)`.
+   * `synchronize: true` creates the column; the GIN index is created on
+   * startup by CatalogSetupService (TypeORM can't emit GIN DDL from a decorator).
+   */
+  @Column({
+    name: 'search_vector',
+    type: 'tsvector',
+    nullable: true,
+    generatedType: 'STORED',
+    asExpression: `to_tsvector('english', coalesce(title,'') || ' ' || coalesce(author,''))`,
+    select: false,
+  })
+  searchVector!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 }
