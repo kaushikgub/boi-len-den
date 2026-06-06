@@ -48,6 +48,18 @@ docker compose ps  # everything should be healthy; kafka-init exits 0
 
 Tear down (including volumes): `pnpm infra:down`.
 
+## Run the frontend
+
+```bash
+# backend services must be running (see below), then:
+pnpm --filter web-frontend dev    # http://localhost:5173
+```
+
+The Vite dev server proxies `/api` to the gateway, so the browser is same-origin —
+the HttpOnly refresh cookie and silent token refresh work without CORS. Pages: login,
+catalog browse, book detail + Rent, and "My Rentals" + Return. The access token lives
+only in memory; the refresh cookie restores the session on reload.
+
 ## Build & run the services
 
 ```bash
