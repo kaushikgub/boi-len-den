@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+.gitignore
+*.md
+keys/
+web-frontend/node_modules
+web-frontend/dist

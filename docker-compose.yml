@@ -135,6 +135,221 @@ services:
       timeout: 5s
       retries: 12
 
+  # ---- Application services ---------------------------------------------------
+
+  keys-init:
+    image: alpine:3
+    volumes:
+      - jwt-keys-data:/keys
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        apk add --no-cache openssl > /dev/null &&
+        if [ ! -f /keys/jwt-private.pem ]; then
+          openssl genrsa -out /keys/jwt-private.pem 2048 &&
+          openssl rsa -in /keys/jwt-private.pem -pubout -out /keys/jwt-public.pem &&
+          echo "JWT RSA keys generated"
+        else
+          echo "JWT RSA keys already present"
+        fi
+    restart: 'no'
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: auth-service
+    environment:
+      PORT: 3001
+      SERVICE_NAME: auth-service
+      NODE_ENV: development
+      AUTH_DATABASE_URL: postgres://auth:auth@postgres-auth:5432/auth
+      REDIS_URL: redis://redis:6379
+      JWT_PRIVATE_KEY_PATH: /keys/jwt-private.pem
+      JWT_PUBLIC_KEY_PATH: /keys/jwt-public.pem
+      ACCESS_TOKEN_TTL: 900
+      REFRESH_TOKEN_TTL: 1209600
+      ADMIN_EMAIL: admin@boi-len-den.local
+      ADMIN_PASSWORD: admin12345
+    volumes:
+      - jwt-keys-data:/keys
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keys-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3001/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: inventory-service
+    environment:
+      PORT: 3003
+      SERVICE_NAME: inventory-service
+      NODE_ENV: development
+      INVENTORY_DATABASE_URL: postgres://inventory:inventory@postgres-inventory:5432/inventory
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      AUTH_JWKS_URL: http://auth-service:3001/.well-known/jwks.json
+      RESERVATION_TTL_SECONDS: 60
+      SWEEP_INTERVAL_SECONDS: 15
+    ports:
+      - '3003:3003'
+    depends_on:
+      postgres-inventory:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3003/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  rental-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: rental-service
+    environment:
+      PORT: 3002
+      SERVICE_NAME: rental-service
+      NODE_ENV: development
+      RENTAL_DATABASE_URL: postgres://rental:rental@postgres-rental:5432/rental
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      AUTH_JWKS_URL: http://auth-service:3001/.well-known/jwks.json
+      INVENTORY_SERVICE_URL: http://inventory-service:3003
+      RENTAL_PERIOD_DAYS: 14
+      RENT_LOCK_TTL_SECONDS: 10
+    ports:
+      - '3002:3002'
+    depends_on:
+      postgres-rental:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3002/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  catalog-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: catalog-service
+    environment:
+      PORT: 3004
+      SERVICE_NAME: catalog-service
+      NODE_ENV: development
+      CATALOG_DATABASE_URL: postgres://catalog:catalog@postgres-catalog:5432/catalog
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      AUTH_JWKS_URL: http://auth-service:3001/.well-known/jwks.json
+    ports:
+      - '3004:3004'
+    depends_on:
+      postgres-catalog:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3004/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: api-gateway
+    environment:
+      PORT: 3000
+      SERVICE_NAME: api-gateway
+      NODE_ENV: development
+      REDIS_URL: redis://redis:6379
+      AUTH_SERVICE_URL: http://auth-service:3001
+      RENTAL_SERVICE_URL: http://rental-service:3002
+      INVENTORY_SERVICE_URL: http://inventory-service:3003
+      CATALOG_SERVICE_URL: http://catalog-service:3004
+      AUTH_JWKS_URL: http://auth-service:3001/.well-known/jwks.json
+      RATE_LIMIT_MAX: 100
+      RATE_LIMIT_WINDOW_SEC: 60
+    ports:
+      - '3000:3000'
+    depends_on:
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      rental-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  web-frontend:
+    build:
+      context: .
+      dockerfile: web-frontend/Dockerfile
+    ports:
+      - '5173:80'
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+
   # ---- kafka-ui (Provectus) — topics, messages, consumer groups, Schema Registry
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -189,6 +404,7 @@ volumes:
   pg-rental-data:
   pg-inventory-data:
   pg-catalog-data:
+  jwt-keys-data:
   redis-data:
   redisinsight-data:
   kafka-data:
