@@ -42,6 +42,7 @@ export class CatalogService {
         repo.create({
           title: dto.title,
           author: dto.author,
+          totalCopies: dto.totalCopies,
           isbn: dto.isbn ?? null,
           description: dto.description ?? null,
           genre: dto.genre ?? null,

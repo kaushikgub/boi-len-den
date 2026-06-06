@@ -20,6 +20,20 @@ export interface Book {
   availableCopies: number;
 }
 
+/** Richer book record owned by catalog-service. Does not include availability counts. */
+export interface CatalogBook {
+  id: string;
+  title: string;
+  author: string;
+  totalCopies: number;
+  isbn: string | null;
+  description: string | null;
+  genre: string | null;
+  coverUrl: string | null;
+  publishedYear: number | null;
+  createdAt: string;
+}
+
 export type RentalStatus = 'RESERVED' | 'ACTIVE' | 'OVERDUE' | 'RETURNED' | 'CANCELLED';
 
 export interface Rental {

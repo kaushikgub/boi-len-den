@@ -26,6 +26,10 @@ export class Book {
   @Column({ name: 'published_year', type: 'int', nullable: true })
   publishedYear!: number | null;
 
+  /** How many physical copies the library owns. Set at creation; never decremented here. */
+  @Column({ name: 'total_copies', type: 'int' })
+  totalCopies!: number;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 }
