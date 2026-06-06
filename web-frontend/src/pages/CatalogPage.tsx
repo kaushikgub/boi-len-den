@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -23,19 +23,25 @@ import { BookCover } from '../components/BookCover';
 export function CatalogPage() {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
+  // Defer the query term so typing feels instant; actual fetch triggers after a paint.
+  const deferredQ = useDeferredValue(q);
+
   const { data: books, isLoading, isError } = useQuery({
-    queryKey: queryKeys.books,
-    queryFn: getBooks,
+    queryKey: [...queryKeys.books, deferredQ],
+    queryFn: () => getBooks(),
+    staleTime: 30_000,
   });
 
-  // Client-side filter for now; real server-side search lands in Slice 2.
-  const filtered = useMemo(() => {
-    const term = q.trim().toLowerCase();
+  // Client-side filter: inventory-service books are the source of truth for
+  // availability counts. Server-side FTS (catalog-service) will replace this
+  // once catalog and inventory are fully merged in a later slice.
+  const filtered = (() => {
+    const term = deferredQ.trim().toLowerCase();
     if (!term) return books ?? [];
     return (books ?? []).filter(
       (b) => b.title.toLowerCase().includes(term) || b.author.toLowerCase().includes(term),
     );
-  }, [books, q]);
+  })();
 
   return (
     <Box>
@@ -79,7 +85,7 @@ export function CatalogPage() {
           ))}
         </Grid>
       ) : filtered.length === 0 ? (
-        <EmptyState searching={!!q.trim()} />
+        <EmptyState searching={!!deferredQ.trim()} />
       ) : (
         <Grid container spacing={2.5}>
           {filtered.map((book) => {
