@@ -25,11 +25,14 @@ export interface EventEnvelope<TType extends string = string, TPayload = unknown
 }
 
 /** JSON Schema fragment for the envelope fields shared by every event. */
+// NOTE: no JSON Schema `format` keywords (uuid/date-time). The Confluent registry's
+// JSON validator rejects unknown formats; UUID/timestamp shape is enforced at the
+// API edges (class-validator) instead. Keep these schemas to types the registry supports.
 export const ENVELOPE_SCHEMA_PROPERTIES = {
-  eventId: { type: 'string', format: 'uuid' },
+  eventId: { type: 'string', minLength: 1 },
   eventType: { type: 'string', minLength: 1 },
   schemaVersion: { type: 'integer', minimum: 1 },
-  occurredAt: { type: 'string', format: 'date-time' },
+  occurredAt: { type: 'string', minLength: 1 },
   key: { type: 'string', minLength: 1 },
   correlationId: { type: 'string', minLength: 1 },
 } as const;
