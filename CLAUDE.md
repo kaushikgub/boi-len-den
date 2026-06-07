@@ -4,80 +4,15 @@ Book rental platform built as NestJS microservices. Read this before touching an
 
 ---
 
-## Full build plan & status
+## How to work with this codebase
 
-### Slice 1 — rent & return ✅ DONE
+Kaushik is a senior backend engineer who cares about trade-off reasoning, idempotency, failure modes, and maintainability.
 
-| Step | What | Status |
-|---|---|---|
-| 1 | Monorepo scaffold: pnpm workspace, NestJS apps skeleton, docker-compose infra (Postgres×3, Redis, Kafka KRaft, Schema Registry) | ✅ |
-| 2 | auth-service: RS256 JWT, rotating refresh tokens (Redis), JWKS endpoint, rate-limit middleware, admin seed | ✅ |
-| 3 | api-gateway: proxy + JWT auth middleware + rate-limit (Redis fixed-window) + correlation ID injection | ✅ |
-| 4 | inventory-service: Book entity, atomic conditional decrement (last-copy guard), reservation holds + TTL sweeper | ✅ |
-| 5 | rental-service: rent (Redis gate → reserve → DB tx + outbox), return, transactional outbox relay | ✅ |
-| 6 | Integration test milestone: 50 concurrent reservers on a 1-copy book → exactly 1 wins, 49 ConflictException | ✅ |
-| 7 | web-frontend: React SPA, login/register, catalog browse, book detail + rent, my-rentals + return, admin add-book | ✅ |
-| — | Bug fixes: StrictMode loading-spinner (ref guard), webpack: true, schema-registry format keywords | ✅ |
-| — | UI redesign: Modern SaaS — sidebar nav, gradient book covers, skeleton loaders, split-screen login | ✅ |
-
-### Slice 2 — catalog-service + cache + search + Docker ✅ DONE
-
-| Step | What | Status |
-|---|---|---|
-| 1+2 | catalog-service scaffold (port 3004, postgres-catalog :5436) + BookCreated event contract + inventory consumer (idempotent ON CONFLICT DO NOTHING) | ✅ |
-| 3 | Admin form switched to POST /api/catalog/books; optional rich fields (isbn, description, genre, coverUrl, publishedYear); createBook triggers BookCreated → inventory via Kafka | ✅ |
-| 4 | Redis cache-aside in catalog-service: `catalog:book:<id>` TTL 5 min, `catalog:books:list` TTL 60 s, list invalidated on write | ✅ |
-| 5 | Postgres FTS: `tsvector GENERATED ALWAYS AS STORED` on (title ∥ author), GIN index via `CatalogSetupService.onModuleInit()`, `plainto_tsquery` + `ts_rank` ordering | ✅ |
-| 6+7 | Frontend: `useDeferredValue` search; 5 integration tests (FTS correctness, outbox-in-same-tx) | ✅ |
-| — | kafka-ui (:8080) + RedisInsight (:8001) added to docker-compose | ✅ |
-| — | Full Docker Compose stack: Dockerfile (ARG SERVICE), web-frontend/Dockerfile (Vite + nginx), keys-init one-shot (openssl RSA keygen), all services containerised with healthchecks | ✅ |
-
-### Slice 3 — overdue detection + notification-service ✅ DONE
-
-| Step | What | Status |
-|---|---|---|
-| 1 | `OverdueJob` in rental-service: `@Cron` every hour, query ACTIVE rentals where `dueAt < NOW()`, update status → OVERDUE, publish `BookOverdue` event via outbox | ✅ |
-| 2 | `BookOverdue` event contract in `libs/contracts` (envelope + JSON Schema + topic `book-overdue`) | ✅ |
-| 3 | New `notification-service` (port 3005, postgres-notification :5437): subscribes to `book-rented`, `book-returned`, `book-overdue`; sends emails via nodemailer (dev: Mailpit SMTP trap) | ✅ |
-| 4 | Notification dedup: `processed_events` table (same pattern as inventory-service) — redelivered event must not send duplicate email | ✅ |
-| 5 | Add Mailpit to docker-compose (:8025 web UI, :1025 SMTP); wire `SMTP_HOST`/`SMTP_PORT` env var to notification-service | ✅ |
-| 6 | Frontend: overdue banner on MyRentalsPage showing count of overdue books | ✅ |
-| 7 | Integration tests: overdue job marks correct rentals; notification consumer dedupes correctly | ✅ |
-
-### Slice 4 — payment-service (idempotent charges) ✅ DONE
-
-| Step | What | Status |
-|---|---|---|
-| 1 | `payment-service` (port 3006, postgres-payment :5438): mock charge ($5 fixed fee) on rent, mock refund on return | ✅ |
-| 2 | `PaymentCharged` / `PaymentRefunded` event contracts in `libs/contracts` | ✅ |
-| 3 | `PaymentConfirmedConsumer` in rental-service: consumes `payment-charged` → RESERVED → ACTIVE; rent() now creates RESERVED | ✅ |
-| 4 | Idempotent charge: `payments` table with `rental_id` UNIQUE; dedup via `processed_events` in same tx | ✅ |
-| 5 | Payment history page in frontend (`/payments`, sidebar nav link) | ✅ |
-| 6 | Stripe integration (optional — swap mock for real Stripe webhook handler) | 🔲 |
-
-### Slice 5 — Kubernetes + Helm 🔲 PENDING
-
-Planned steps:
-
-| Step | What |
-|---|---|
-| 1 | Helm chart skeleton: one chart per service, shared `values.yaml` for image tags and env |
-| 2 | Kubernetes manifests: Deployment, Service, ConfigMap, Secret (RSA keys from K8s Secret or external-secrets) |
-| 3 | Ingress (nginx ingress controller): route `/api` → gateway, `/` → frontend |
-| 4 | Horizontal pod autoscaling for gateway and rental-service |
-| 5 | Health probes wired to existing `/health` endpoints |
-| 6 | CI: GitHub Actions — lint + test + build Docker images + push to registry + helm upgrade |
-
----
-
-## Open gaps (known before Slice 3 starts)
-
-- **Overdue detection:** no job marks ACTIVE rentals past `dueAt` as OVERDUE. (Slice 3 Step 1)
-- **Notifications:** nothing reacts to BookRented/BookReturned/BookOverdue to send emails. (Slice 3 Step 3)
-- **Catalog ↔ inventory merge:** `BookDetailPage` shows inventory availability but not catalog rich data (isbn, description, genre). Catalog doesn't track `availableCopies` — fix options: (a) catalog subscribes to BookRented/BookReturned to maintain its own counter, or (b) gateway aggregates both calls.
-- **Seed migration:** the 3 dev-seeded books live only in inventory's DB, not in catalog. Catalog FTS and `GET /api/catalog/books` won't return them. Fix: move `SeedService` to catalog-service so seeding flows through the BookCreated event.
-- **Pagination:** book list has no pagination.
-- **RSA key management in prod:** keys are auto-generated into a Docker named volume (`jwt-keys-data`). For prod/K8s use AWS Secrets Manager or Vault. (Slice 5)
+- **Plan before coding.** Lay out the approach and confirm before writing code.
+- **Surface trade-offs.** Before any consequential decision (schema shape, sync vs async, service boundary, serialization format) — explain the options with a recommended choice.
+- **One vertical slice at a time.** Build end-to-end before scaffolding breadth.
+- **Report honestly.** Call out what was verified vs. not. If Docker is down and a check can't run, say so.
+- **No unsolicited refactors, comments, or abstractions.** Fix what was asked; leave the rest.
 
 ---
 
@@ -85,15 +20,17 @@ Planned steps:
 
 | Service | Host port | DB port | Owns |
 |---|---|---|---|
-| api-gateway | 3000 | — | proxy, JWT auth middleware, rate-limit (Redis), correlation IDs |
+| api-gateway | 3000 | — | Proxy, JWT auth middleware, rate-limit (Redis), correlation IDs |
 | auth-service | 3001 | postgres-auth :5433 | RS256 JWT, rotating refresh tokens (Redis), JWKS endpoint |
-| rental-service | 3002 | postgres-rental :5434 | rent/return lifecycle, transactional outbox |
-| inventory-service | 3003 | postgres-inventory :5435 | copy counts, reservation holds, BookRented/Returned/Created consumer |
-| catalog-service | 3004 | postgres-catalog :5436 | book metadata, FTS (tsvector GIN), Redis cache-aside, BookCreated outbox |
-| payment-service | 3006 | postgres-payment :5438 | mock charges/refunds, idempotent via rental_id UNIQUE, PaymentCharged/Refunded outbox |
-| web-frontend | 5173 | — | React SPA — nginx in Docker, Vite dev-server on host |
-| kafka-ui | 8080 | — | topics, messages, consumer groups, Schema Registry |
-| RedisInsight | 8001 | — | browse Redis keys |
+| rental-service | 3002 | postgres-rental :5434 | Rent/return lifecycle, overdue cron, transactional outbox |
+| inventory-service | 3003 | postgres-inventory :5435 | Copy counts, reservation holds, BookRented/Returned/Created consumer |
+| catalog-service | 3004 | postgres-catalog :5436 | Book metadata, FTS (tsvector GIN), Redis cache-aside, BookCreated outbox |
+| notification-service | 3005 | postgres-notification :5437 | Email dispatch for book-rented/returned/overdue; dedup via processed_events |
+| payment-service | 3006 | postgres-payment :5438 | Mock charges/refunds, idempotent via rental_id UNIQUE, PaymentCharged/Refunded outbox |
+| web-frontend | 5173 (dev) / 80 (Docker) | — | React SPA — nginx in Docker, Vite dev-server on host |
+| kafka-ui | 8080 | — | Topics, messages, consumer groups, Schema Registry |
+| Mailpit | 8025 / 1025 | — | SMTP trap (web UI / SMTP port) |
+| RedisInsight | 8001 | — | Browse Redis keys |
 
 ---
 
@@ -108,12 +45,16 @@ pnpm stack:down:clean    # stop + wipe all volumes (full reset)
 
 **Host dev mode (infra in Docker, services hot-reloaded on host):**
 ```bash
-pnpm infra:up            # Postgres×4, Redis, Kafka, Schema Registry, UIs
+pnpm infra:up            # Postgres×5, Redis, Kafka, Schema Registry, Mailpit, UIs
 cp .env.example .env     # fill once
-pnpm start:auth          # :3001
+
+# Start in this order (each in its own terminal):
+pnpm start:auth          # :3001  — must be first (others validate against its JWKS)
 pnpm start:inventory     # :3003
-pnpm start:rental        # :3002
 pnpm start:catalog       # :3004
+pnpm start:rental        # :3002
+pnpm start:payment       # :3006
+pnpm start:notification  # :3005
 pnpm start:gateway       # :3000
 cd web-frontend && pnpm dev   # :5173
 ```
@@ -134,14 +75,19 @@ pnpm test:int
 | Topic | Partitions | Producer | Consumers |
 |---|---|---|---|
 | `book-created` | 6 | catalog-service (outbox relay) | inventory-service |
-| `book-rented` | 6 | rental-service (outbox relay) | inventory-service |
-| `book-returned` | 6 | rental-service (outbox relay) | inventory-service |
+| `book-rented` | 6 | rental-service (outbox relay) | inventory-service, notification-service, payment-service |
+| `book-returned` | 6 | rental-service (outbox relay) | inventory-service, notification-service, payment-service |
+| `book-overdue` | 6 | rental-service (outbox relay) | notification-service |
+| `payment-charged` | 6 | payment-service (outbox relay) | rental-service |
+| `payment-refunded` | 6 | payment-service (outbox relay) | — (logged only) |
 
 **BookCreated:** Admin `POST /api/catalog/books` → catalog writes Book + outbox row (same tx) → relay → inventory creates its own Book record (`ON CONFLICT DO NOTHING` on PK = idempotent).
 
-**Rent:** Redis SET NX (fast gate) → `inventory.reserve()` (atomic `UPDATE WHERE available_copies > 0`, Postgres row lock = real last-copy guard) → rental DB tx + outbox row → relay → inventory confirms reservation (no count change — already decremented synchronously).
+**Rent:** Redis SET NX (fast gate) → `inventory.reserve()` (atomic `UPDATE WHERE available_copies > 0` = real last-copy guard) → rental writes RESERVED + outbox → relay publishes `book-rented` → payment charges $5 + publishes `payment-charged` → rental consumes `payment-charged` → RESERVED → ACTIVE → notification sends confirmation email.
 
-**Return:** `POST /api/rentals/:id/return` → rental tx + outbox → relay → inventory `applyReturn()` (dedupe by eventId in `processed_events`, then increment `available_copies`).
+**Return:** `POST /api/rentals/:id/return` → rental tx + outbox → relay publishes `book-returned` → inventory increments copies (idempotent via `processed_events`), payment issues refund, notification sends confirmation email.
+
+**Overdue:** `@Cron` every hour in rental-service → marks ACTIVE rentals past `dueAt` as OVERDUE → outbox publishes `book-overdue` → notification sends warning email.
 
 ---
 
@@ -183,16 +129,39 @@ TypeORM `synchronize` creates the column but can't emit GIN DDL from a decorator
 | `libs/contracts/src/` | All event types, JSON Schemas, topic names — single source of truth for the event contract |
 | `libs/common/src/` | Shared: Redis, Kafka+SchemaRegistry client, JWT validator (JWKS), auth guards, correlation ID header |
 | `apps/auth-service/src/auth/token.service.ts` | RS256 JWT issue, refresh token rotation, revocation |
+| `apps/auth-service/src/users/users.service.ts` | User creation and lookup |
+| `apps/auth-service/src/users/internal.controller.ts` | Internal user lookup endpoint (called by other services) |
 | `apps/inventory-service/src/inventory.service.ts` | `reserve()` (last-copy guard), `applyReturn()` (idempotent), `createBookFromEvent()` |
-| `apps/rental-service/src/rentals.service.ts` | `rent()` — Redis gate → reserve → DB tx + outbox; `returnBook()` |
+| `apps/rental-service/src/rentals.service.ts` | `rent()` — Redis gate → reserve → DB tx + outbox; `returnBook()`; `OverdueJob` cron |
+| `apps/rental-service/src/rentals.controller.ts` | Rental HTTP endpoints |
+| `apps/rental-service/src/dto.ts` | Rental DTOs |
 | `apps/rental-service/src/outbox/relay.service.ts` | **Canonical outbox relay pattern** — copy this for any new outbox producer |
 | `apps/catalog-service/src/catalog.service.ts` | `createBook()` with outbox, Redis cache-aside, FTS search |
 | `apps/catalog-service/src/catalog-setup.service.ts` | GIN index bootstrap on startup |
+| `apps/catalog-service/src/internal.controller.ts` | Internal book lookup endpoint |
+| `apps/catalog-service/src/dto.ts` | Catalog DTOs |
+| `apps/payment-service/src/payment.service.ts` | Mock charge/refund, idempotent via `rental_id UNIQUE`, outbox relay |
+| `apps/payment-service/src/payment.controller.ts` | Payment HTTP endpoints |
+| `apps/payment-service/src/dto.ts` | Payment DTOs |
+| `apps/notification-service/src/notification.consumer.ts` | Kafka consumer for all three events; dedup; email dispatch |
+| `apps/notification-service/src/email.service.ts` | nodemailer wrapper; Mailpit in dev |
+| `apps/api-gateway/src/routes.ts` | Gateway route table (prefix → target service) |
+| `apps/api-gateway/src/middleware/` | JWT auth, rate-limit, strip-identity middlewares |
 | `apps/inventory-service/test/last-copy.int-spec.ts` | Milestone: 50 concurrent reservers, exactly 1 wins |
 | `apps/catalog-service/test/catalog.int-spec.ts` | FTS correctness + outbox-in-same-tx tests |
 | `web-frontend/src/api/client.ts` | Access token in module variable, single-flight refresh across concurrent 401s |
 | `web-frontend/src/auth/AuthContext.tsx` | Bootstrap with `bootstrapped.current` ref guard |
+| `web-frontend/src/api/books.ts` | Book API calls |
+| `web-frontend/src/api/rentals.ts` | Rental API calls |
+| `web-frontend/src/api/payments.ts` | Payment API calls |
+| `web-frontend/src/api/types.ts` | Shared API types |
+| `web-frontend/src/queryKeys.ts` | TanStack Query key definitions |
+| `web-frontend/src/components/Layout.tsx` | Sidebar nav layout |
+| `web-frontend/src/pages/AdminBooksPage.tsx` | Admin book management |
+| `web-frontend/src/pages/BookDetailPage.tsx` | Book detail + rent |
+| `web-frontend/src/pages/MyRentalsPage.tsx` | My rentals + return + overdue banner |
+| `web-frontend/src/pages/PaymentsPage.tsx` | Payment history |
 | `Dockerfile` | Shared NestJS Dockerfile — `ARG SERVICE` selects which app |
 | `web-frontend/Dockerfile` | Vite build + nginx multi-stage |
 | `web-frontend/nginx.conf` | Proxy `/api` → `http://api-gateway:3000`; SPA fallback to `index.html` |
-| `docker-compose.yml` | Full stack: all services + `keys-init` + kafka-ui + RedisInsight |
+| `docker-compose.yml` | Full stack: all services + `keys-init` + kafka-ui + Mailpit + RedisInsight |
