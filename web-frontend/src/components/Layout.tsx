@@ -42,7 +42,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { to: '/rentals', label: 'My Rentals', icon: <LibraryBooksIcon /> },
     { to: '/payments', label: 'Payments', icon: <ReceiptLongIcon /> },
     ...(hasRole('librarian', 'admin')
-      ? [{ to: '/admin/books', label: 'Add Book', icon: <AddBoxIcon /> }]
+      ? [{ to: '/admin/books', label: 'Book Management', icon: <AddBoxIcon /> }]
       : []),
   ];
 

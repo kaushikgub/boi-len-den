@@ -47,7 +47,7 @@ export function BookDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.book(id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.books });
-      queryClient.invalidateQueries({ queryKey: queryKeys.myRentals });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myRentalsRoot });
       setToast('Rented! Check "My Rentals".');
     },
   });

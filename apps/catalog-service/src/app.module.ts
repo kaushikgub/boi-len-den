@@ -6,6 +6,7 @@ import { Book } from './entities/book.entity';
 import { OutboxMessage } from './entities/outbox.entity';
 import { CatalogService } from './catalog.service';
 import { CatalogController } from './catalog.controller';
+import { InternalCatalogController } from './internal.controller';
 import { CatalogSetupService } from './catalog-setup.service';
 import { RelayService } from './outbox/relay.service';
 import { HealthController } from './health.controller';
@@ -28,7 +29,7 @@ import { HealthController } from './health.controller';
     }),
     TypeOrmModule.forFeature([Book, OutboxMessage]),
   ],
-  controllers: [CatalogController, HealthController],
+  controllers: [CatalogController, InternalCatalogController, HealthController],
   providers: [CatalogService, CatalogSetupService, RelayService],
 })
 export class AppModule {}

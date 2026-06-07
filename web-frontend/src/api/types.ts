@@ -60,3 +60,17 @@ export interface Rental {
   rentedAt: string;
   returnedAt: string | null;
 }
+
+export interface PaginatedRentals {
+  data: Rental[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface PaginatedPayments {
+  data: Payment[];
+  total: number;
+  page: number;
+  limit: number;
+}

@@ -1,8 +1,12 @@
 import { api } from './client';
-import { Rental } from './types';
+import { PaginatedRentals, Rental } from './types';
 
-export async function getMyRentals(): Promise<Rental[]> {
-  const { data } = await api.get<Rental[]>('/rentals');
+export async function getMyRentals(
+  tab: 'active' | 'returned',
+  page: number,
+  limit = 5,
+): Promise<PaginatedRentals> {
+  const { data } = await api.get<PaginatedRentals>('/rentals', { params: { tab, page, limit } });
   return data;
 }
 

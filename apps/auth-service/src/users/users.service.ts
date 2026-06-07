@@ -41,6 +41,21 @@ export class UsersService {
     return this.users.findOne({ where: { id } });
   }
 
+  async findEmailById(id: string): Promise<string | null> {
+    const user = await this.users.findOne({ where: { id }, select: { email: true } });
+    return user?.email ?? null;
+  }
+
+  async findAllMemberEmails(): Promise<string[]> {
+    const members = await this.users
+      .createQueryBuilder('u')
+      .select('u.email')
+      .where(`NOT ('admin' = ANY(u.roles))`)
+      .andWhere(`NOT ('librarian' = ANY(u.roles))`)
+      .getMany();
+    return members.map((u) => u.email);
+  }
+
   /** Returns the user iff the password matches; null otherwise. */
   async validateCredentials(email: string, password: string): Promise<User | null> {
     const user = await this.findByEmail(email);

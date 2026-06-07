@@ -33,6 +33,7 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import EditIcon from '@mui/icons-material/Edit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
@@ -238,6 +239,7 @@ function ManageBooks() {
   const queryClient = useQueryClient();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [confirmBook, setConfirmBook] = useState<CatalogBook | null>(null);
+  const [editBook, setEditBook] = useState<CatalogBook | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const { data: books, isLoading, isError } = useQuery({
@@ -367,6 +369,13 @@ function ManageBooks() {
                       {/* Actions */}
                       <TableCell align="right">
                         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <Tooltip title="Edit book">
+                            <span>
+                              <IconButton size="small" disabled={busy} onClick={() => setEditBook(book)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
                           <Tooltip title={book.isHidden ? 'Make visible' : 'Hide from catalog'}>
                             <span>
                               <IconButton
@@ -401,6 +410,19 @@ function ManageBooks() {
         </Table>
       </TableContainer>
 
+      {/* Edit dialog */}
+      {editBook && (
+        <EditBookDialog
+          book={editBook}
+          onClose={() => setEditBook(null)}
+          onSaved={(title) => {
+            setToast(`"${title}" updated.`);
+            setEditBook(null);
+            invalidate();
+          }}
+        />
+      )}
+
       {/* Delete confirmation dialog */}
       <Dialog open={!!confirmBook} onClose={() => setConfirmBook(null)} maxWidth="xs" fullWidth>
         <DialogTitle>Delete book?</DialogTitle>
@@ -431,6 +453,157 @@ function ManageBooks() {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
     </>
+  );
+}
+
+/* ─── Edit Book Dialog ──────────────────────────────────────────────────────── */
+
+function EditBookDialog({
+  book,
+  onClose,
+  onSaved,
+}: {
+  book: CatalogBook;
+  onClose: () => void;
+  onSaved: (title: string) => void;
+}) {
+  const [title, setTitle] = useState(book.title);
+  const [author, setAuthor] = useState(book.author);
+  const [totalCopies, setTotalCopies] = useState(book.totalCopies);
+  const [isbn, setIsbn] = useState(book.isbn ?? '');
+  const [description, setDescription] = useState(book.description ?? '');
+  const [genre, setGenre] = useState(book.genre ?? '');
+  const [coverUrl, setCoverUrl] = useState(book.coverUrl ?? '');
+  const [publishedYear, setPublishedYear] = useState(
+    book.publishedYear ? String(book.publishedYear) : '',
+  );
+  const [showOptional, setShowOptional] = useState(
+    !!(book.isbn || book.description || book.genre || book.coverUrl || book.publishedYear),
+  );
+
+  const save = useMutation({
+    mutationFn: () =>
+      patchCatalogBook(book.id, {
+        title: title.trim() || undefined,
+        author: author.trim() || undefined,
+        totalCopies: totalCopies || undefined,
+        isbn: isbn.trim() || undefined,
+        description: description.trim() || undefined,
+        genre: genre.trim() || undefined,
+        coverUrl: coverUrl.trim() || undefined,
+        publishedYear: publishedYear ? parseInt(publishedYear, 10) : undefined,
+      }),
+    onSuccess: (updated) => onSaved(updated.title),
+  });
+
+  const error = save.error as AxiosError<{ message?: string }> | null;
+
+  return (
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Edit book</DialogTitle>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          save.mutate();
+        }}
+      >
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 0.5 }}>
+            {error && (
+              <Alert severity="error">
+                {(error.response?.data?.message as string) ?? 'Could not save changes.'}
+              </Alert>
+            )}
+            <TextField
+              label="Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              fullWidth
+              autoFocus
+            />
+            <TextField
+              label="Author"
+              value={author}
+              onChange={(e) => setAuthor(e.target.value)}
+              required
+              fullWidth
+            />
+            <TextField
+              label="Total copies"
+              type="number"
+              inputProps={{ min: 1 }}
+              value={totalCopies}
+              onChange={(e) => setTotalCopies(Math.max(1, Number(e.target.value)))}
+              required
+            />
+            <Divider
+              component="button"
+              type="button"
+              onClick={() => setShowOptional((v) => !v)}
+              sx={{
+                cursor: 'pointer',
+                fontSize: 13,
+                color: 'text.secondary',
+                border: 'none',
+                background: 'none',
+                textAlign: 'left',
+                '&:hover': { color: 'text.primary' },
+              }}
+            >
+              {showOptional ? '▾ Hide optional fields' : '▸ ISBN, description, genre…'}
+            </Divider>
+            <Collapse in={showOptional}>
+              <Stack spacing={2}>
+                <TextField
+                  label="ISBN"
+                  value={isbn}
+                  onChange={(e) => setIsbn(e.target.value)}
+                  fullWidth
+                />
+                <TextField
+                  label="Genre"
+                  value={genre}
+                  onChange={(e) => setGenre(e.target.value)}
+                  fullWidth
+                />
+                <TextField
+                  label="Published year"
+                  type="number"
+                  inputProps={{ min: 1000, max: 2099 }}
+                  value={publishedYear}
+                  onChange={(e) => setPublishedYear(e.target.value)}
+                  fullWidth
+                />
+                <TextField
+                  label="Cover image URL"
+                  value={coverUrl}
+                  onChange={(e) => setCoverUrl(e.target.value)}
+                  fullWidth
+                  helperText="Leave blank to use a generated gradient cover"
+                />
+                <TextField
+                  label="Description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  fullWidth
+                  multiline
+                  minRows={3}
+                />
+              </Stack>
+            </Collapse>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={onClose} disabled={save.isPending}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="contained" disabled={save.isPending}>
+            {save.isPending ? 'Saving…' : 'Save changes'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
   );
 }
 

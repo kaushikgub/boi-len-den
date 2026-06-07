@@ -2,11 +2,14 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { Consumer } from 'kafkajs';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { KafkaService } from '@app/common';
 import {
+  BOOK_CREATED,
   BOOK_OVERDUE,
   BOOK_RENTED,
   BOOK_RETURNED,
+  BookCreatedEvent,
   BookOverdueEvent,
   BookRentedEvent,
   BookReturnedEvent,
@@ -14,7 +17,7 @@ import {
   TOPICS,
 } from '@app/contracts';
 import { ProcessedEvent } from './entities/processed-event.entity';
-import { EmailService } from './email.service';
+import { BookDetails, EmailService } from './email.service';
 
 /**
  * Consumes rental lifecycle events and sends transactional emails.
@@ -32,17 +35,24 @@ export class NotificationConsumer implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(NotificationConsumer.name);
   private consumer!: Consumer;
 
+  private readonly authServiceUrl: string;
+  private readonly catalogServiceUrl: string;
+
   constructor(
     private readonly kafka: KafkaService,
     private readonly email: EmailService,
     @InjectDataSource() private readonly dataSource: DataSource,
-  ) {}
+    config: ConfigService,
+  ) {
+    this.authServiceUrl = config.get('AUTH_SERVICE_URL', 'http://auth-service:3001');
+    this.catalogServiceUrl = config.get('CATALOG_SERVICE_URL', 'http://catalog-service:3004');
+  }
 
   async onModuleInit() {
     this.consumer = this.kafka.createConsumer('notification-service');
     await this.consumer.connect();
     await this.consumer.subscribe({
-      topics: [TOPICS.BOOK_RENTED, TOPICS.BOOK_RETURNED, TOPICS.BOOK_OVERDUE],
+      topics: [TOPICS.BOOK_CREATED, TOPICS.BOOK_RENTED, TOPICS.BOOK_RETURNED, TOPICS.BOOK_OVERDUE],
       fromBeginning: true,
     });
     await this.consumer.run({
@@ -64,19 +74,43 @@ export class NotificationConsumer implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      if (event.eventType === BOOK_RENTED) {
+      if (event.eventType === BOOK_CREATED) {
+        const { payload } = event as BookCreatedEvent;
+        const emails = await this.fetchAllMemberEmails();
+        await Promise.allSettled(
+          emails.map((to) => this.email.sendNewBookAvailable(to, payload.title, payload.author)),
+        );
+        this.logger.debug(`sent new-book notifications for "${payload.title}" to ${emails.length} users`);
+      } else if (event.eventType === BOOK_RENTED) {
         const { payload } = event as BookRentedEvent;
-        // userId is the email address in this dev setup (same as auth-service seed)
-        await this.email.sendBookRented(payload.userId, payload.bookId, payload.dueAt);
-        this.logger.debug(`sent rent confirmation for rental ${payload.rentalId}`);
+        const [to, book] = await Promise.all([
+          this.fetchUserEmail(payload.userId),
+          this.fetchBookDetails(payload.bookId),
+        ]);
+        if (to) {
+          await this.email.sendBookRented(to, book, payload.dueAt);
+          this.logger.debug(`sent rent confirmation for rental ${payload.rentalId}`);
+        }
       } else if (event.eventType === BOOK_RETURNED) {
         const { payload } = event as BookReturnedEvent;
-        await this.email.sendBookReturned(payload.userId, payload.bookId);
-        this.logger.debug(`sent return confirmation for rental ${payload.rentalId}`);
+        const [to, book] = await Promise.all([
+          this.fetchUserEmail(payload.userId),
+          this.fetchBookDetails(payload.bookId),
+        ]);
+        if (to) {
+          await this.email.sendBookReturned(to, book, payload.returnedAt);
+          this.logger.debug(`sent return confirmation for rental ${payload.rentalId}`);
+        }
       } else if (event.eventType === BOOK_OVERDUE) {
         const { payload } = event as BookOverdueEvent;
-        await this.email.sendBookOverdue(payload.userId, payload.bookId, payload.dueAt);
-        this.logger.debug(`sent overdue notice for rental ${payload.rentalId}`);
+        const [to, book] = await Promise.all([
+          this.fetchUserEmail(payload.userId),
+          this.fetchBookDetails(payload.bookId),
+        ]);
+        if (to) {
+          await this.email.sendBookOverdue(to, book, payload.dueAt);
+          this.logger.debug(`sent overdue notice for rental ${payload.rentalId}`);
+        }
       } else {
         this.logger.warn(`ignoring unexpected event on ${topic}: ${event.eventType}`);
       }
@@ -86,6 +120,46 @@ export class NotificationConsumer implements OnModuleInit, OnModuleDestroy {
       this.logger.error(
         `email send failed for ${event.eventId} (${event.eventType}): ${(err as Error).message}`,
       );
+    }
+  }
+
+  private async fetchBookDetails(bookId: string): Promise<BookDetails> {
+    try {
+      const res = await fetch(`${this.catalogServiceUrl}/internal/books/${bookId}`);
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const b = (await res.json()) as {
+        title: string;
+        author: string;
+        genre?: string | null;
+        publishedYear?: number | null;
+      };
+      return { title: b.title, author: b.author, genre: b.genre ?? undefined, publishedYear: b.publishedYear ?? undefined };
+    } catch (err) {
+      this.logger.warn(`could not fetch book details for ${bookId}: ${(err as Error).message}`);
+      return { title: bookId, author: '' };
+    }
+  }
+
+  private async fetchUserEmail(userId: string): Promise<string | null> {
+    try {
+      const res = await fetch(`${this.authServiceUrl}/internal/users/${userId}/email`);
+      if (!res.ok) return null;
+      const body = (await res.json()) as { email: string };
+      return body.email;
+    } catch (err) {
+      this.logger.error(`failed to fetch email for user ${userId}: ${(err as Error).message}`);
+      return null;
+    }
+  }
+
+  private async fetchAllMemberEmails(): Promise<string[]> {
+    try {
+      const res = await fetch(`${this.authServiceUrl}/internal/users/emails`);
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      return (await res.json()) as string[];
+    } catch (err) {
+      this.logger.error(`failed to fetch member emails: ${(err as Error).message}`);
+      return [];
     }
   }
 

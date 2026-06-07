@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -17,7 +18,7 @@ import {
   JwtAuthGuard,
 } from '@app/common';
 import { RentalsService } from './rentals.service';
-import { RentBookDto } from './dto';
+import { ListRentalsQueryDto, RentBookDto } from './dto';
 
 @Controller('rentals')
 @UseGuards(JwtAuthGuard)
@@ -25,8 +26,8 @@ export class RentalsController {
   constructor(private readonly rentals: RentalsService) {}
 
   @Get()
-  list(@CurrentUser() user: AuthenticatedUser) {
-    return this.rentals.listForUser(user.userId);
+  list(@CurrentUser() user: AuthenticatedUser, @Query() query: ListRentalsQueryDto) {
+    return this.rentals.listForUser(user.userId, query.tab, query.page, query.limit);
   }
 
   @Post()

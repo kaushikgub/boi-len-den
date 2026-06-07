@@ -27,10 +27,19 @@ export async function getCatalogBook(id: string): Promise<CatalogBook> {
   return data;
 }
 
-export async function patchCatalogBook(
-  id: string,
-  patch: { isHidden?: boolean },
-): Promise<CatalogBook> {
+export interface UpdateBookInput {
+  title?: string;
+  author?: string;
+  totalCopies?: number;
+  isbn?: string;
+  description?: string;
+  genre?: string;
+  coverUrl?: string;
+  publishedYear?: number;
+  isHidden?: boolean;
+}
+
+export async function patchCatalogBook(id: string, patch: UpdateBookInput): Promise<CatalogBook> {
   const { data } = await api.patch<CatalogBook>(`/catalog/books/${id}`, patch);
   return data;
 }

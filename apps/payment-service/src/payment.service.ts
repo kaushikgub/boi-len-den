@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { PAYMENT_CHARGED, PAYMENT_REFUNDED, TOPICS } from '@app/contracts';
 import { Payment } from './entities/payment.entity';
 import { ProcessedEvent } from './entities/processed-event.entity';
@@ -102,11 +102,20 @@ export class PaymentService {
     });
   }
 
-  getPaymentsForUser(userId: string): Promise<Payment[]> {
-    return this.dataSource.getRepository(Payment).find({
-      where: { userId },
+  async getPaymentsForUser(
+    userId: string,
+    status: 'CHARGED' | 'REFUNDED' | undefined,
+    page: number,
+    limit: number,
+  ): Promise<{ data: Payment[]; total: number; page: number; limit: number }> {
+    const where = status ? { userId, status: In([status]) } : { userId };
+    const [data, total] = await this.dataSource.getRepository(Payment).findAndCount({
+      where,
       order: { chargedAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    return { data, total, page, limit };
   }
 
   private async markProcessed(m: EntityManager, eventId: string, eventType: string): Promise<boolean> {

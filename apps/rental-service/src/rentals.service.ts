@@ -8,7 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { RedisService } from '@app/common';
 import {
   BOOK_RENTED,
@@ -38,11 +38,25 @@ export class RentalsService {
     this.lockTtlSec = Number(config.get('RENT_LOCK_TTL_SECONDS', '10'));
   }
 
-  listForUser(userId: string): Promise<Rental[]> {
-    return this.dataSource.getRepository(Rental).find({
-      where: { userId },
+  private static readonly TAB_STATUSES = {
+    active: ['RESERVED', 'ACTIVE', 'OVERDUE'] as const,
+    returned: ['RETURNED', 'CANCELLED'] as const,
+  };
+
+  async listForUser(
+    userId: string,
+    tab: 'active' | 'returned',
+    page: number,
+    limit: number,
+  ): Promise<{ data: Rental[]; total: number; page: number; limit: number }> {
+    const statuses = RentalsService.TAB_STATUSES[tab];
+    const [data, total] = await this.dataSource.getRepository(Rental).findAndCount({
+      where: { userId, status: In([...statuses]) },
       order: { rentedAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    return { data, total, page, limit };
   }
 
   /**
