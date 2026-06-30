@@ -9,6 +9,7 @@ import { ProcessedEvent } from './entities/processed-event.entity';
 import { RentalsService } from './rentals.service';
 import { RentalsController } from './rentals.controller';
 import { InventoryClient } from './inventory.client';
+import { CatalogClient } from './catalog.client';
 import { RelayService } from './outbox/relay.service';
 import { OverdueJob } from './overdue/overdue.job';
 import { PaymentConfirmedConsumer } from './payment/payment-confirmed.consumer';
@@ -34,6 +35,6 @@ import { HealthController } from './health.controller';
     TypeOrmModule.forFeature([Rental, OutboxMessage, ProcessedEvent]),
   ],
   controllers: [RentalsController, HealthController],
-  providers: [RentalsService, InventoryClient, RelayService, OverdueJob, PaymentConfirmedConsumer],
+  providers: [RentalsService, InventoryClient, CatalogClient, RelayService, OverdueJob, PaymentConfirmedConsumer],
 })
 export class AppModule {}

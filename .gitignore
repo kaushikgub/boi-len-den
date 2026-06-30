@@ -29,4 +29,6 @@ coverage/
 
 # secrets / keys (RS256 signing material is generated locally, never committed)
 *.pem
-keys/
+keys/*.pem
+keys/*.key
+keys/*.pub

@@ -19,6 +19,7 @@ import {
 import { Rental } from './entities/rental.entity';
 import { OutboxMessage } from './entities/outbox.entity';
 import { InventoryClient } from './inventory.client';
+import { CatalogClient } from './catalog.client';
 import { buildEnvelope } from './outbox/envelope.factory';
 import { assertTransition, isOutstanding } from './domain/rental-status';
 
@@ -31,6 +32,7 @@ export class RentalsService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly inventory: InventoryClient,
+    private readonly catalog: CatalogClient,
     private readonly redis: RedisService,
     config: ConfigService,
   ) {
@@ -48,14 +50,22 @@ export class RentalsService {
     tab: 'active' | 'returned',
     page: number,
     limit: number,
-  ): Promise<{ data: Rental[]; total: number; page: number; limit: number }> {
+  ) {
     const statuses = RentalsService.TAB_STATUSES[tab];
-    const [data, total] = await this.dataSource.getRepository(Rental).findAndCount({
+    const [rentals, total] = await this.dataSource.getRepository(Rental).findAndCount({
       where: { userId, status: In([...statuses]) },
       order: { rentedAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
+
+    const data = await Promise.all(
+      rentals.map(async (rental) => {
+        const book = await this.catalog.getBook(rental.bookId);
+        return { ...rental, bookTitle: book?.title ?? null, bookCoverUrl: book?.coverUrl ?? null };
+      }),
+    );
+
     return { data, total, page, limit };
   }
 

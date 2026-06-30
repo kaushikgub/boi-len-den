@@ -21,12 +21,12 @@ export interface Book {
   coverUrl: string | null;
 }
 
-/** Richer book record owned by catalog-service. Does not include availability counts. */
 export interface CatalogBook {
   id: string;
   title: string;
   author: string;
   totalCopies: number;
+  availableCopies: number;
   isbn: string | null;
   description: string | null;
   genre: string | null;
@@ -59,6 +59,8 @@ export interface Rental {
   dueAt: string;
   rentedAt: string;
   returnedAt: string | null;
+  bookTitle: string | null;
+  bookCoverUrl: string | null;
 }
 
 export interface PaginatedRentals {
