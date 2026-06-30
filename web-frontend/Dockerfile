@@ -1,7 +1,7 @@
 # Build context is the monorepo root (docker-compose sets context: .)
 # so we can reach pnpm-workspace.yaml and the shared pnpm-lock.yaml.
 
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 RUN npm install -g pnpm@9

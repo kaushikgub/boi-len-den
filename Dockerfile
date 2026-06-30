@@ -5,7 +5,7 @@
 # Single stage keeps things simple — pnpm's virtual-store symlinks break in
 # multi-stage COPY, and image size is not a concern for this dev stack.
 
-FROM node:20-alpine
+FROM node:24-alpine
 WORKDIR /app
 
 RUN npm install -g pnpm@9
