@@ -44,7 +44,7 @@
     "http-proxy-middleware": "^3",
     "ioredis": "^5",
     "jsonwebtoken": "^9",
-    "jwks-rsa": "^4.1.0",
+    "jwks-rsa": "^3.2.2",
     "kafkajs": "^2",
     "nestjs-pino": "^4.1.0",
     "nodemailer": "^9.0.3",
