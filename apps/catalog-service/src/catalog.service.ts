@@ -7,6 +7,7 @@ import { Book } from './entities/book.entity';
 import { OutboxMessage } from './entities/outbox.entity';
 import { buildEnvelope } from './outbox/envelope.factory';
 import { CreateBookDto, UpdateBookDto } from './dto';
+import { InventoryClient } from './inventory.client';
 
 const LIST_KEY = 'catalog:books:list';
 const bookKey = (id: string) => `catalog:book:${id}`;
@@ -20,22 +21,24 @@ export class CatalogService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly redis: RedisService,
+    private readonly inventory: InventoryClient,
   ) {}
 
-  async listBooks(): Promise<Book[]> {
+  async listBooks(): Promise<(Book & { availableCopies: number })[]> {
     const cached = await this.redis.client.get(LIST_KEY);
-    if (cached) return JSON.parse(cached) as Book[];
-    const books = await this.dataSource.getRepository(Book).find({
-      where: { isHidden: false },
-      order: { title: 'ASC' },
-    });
-    await this.redis.client.setex(LIST_KEY, LIST_TTL, JSON.stringify(books));
-    return books;
+    const books: Book[] = cached
+      ? (JSON.parse(cached) as Book[])
+      : await this.dataSource.getRepository(Book).find({ where: { isHidden: false }, order: { title: 'ASC' } });
+    if (!cached) await this.redis.client.setex(LIST_KEY, LIST_TTL, JSON.stringify(books));
+    const avail = await this.inventory.getAvailabilityMap();
+    return books.map((b) => ({ ...b, availableCopies: avail.get(b.id) ?? 0 }));
   }
 
   /** Admin view — returns all books including hidden ones. No cache. */
-  listAllBooks(): Promise<Book[]> {
-    return this.dataSource.getRepository(Book).find({ order: { title: 'ASC' } });
+  async listAllBooks(): Promise<(Book & { availableCopies: number })[]> {
+    const books = await this.dataSource.getRepository(Book).find({ order: { title: 'ASC' } });
+    const avail = await this.inventory.getAvailabilityMap();
+    return books.map((b) => ({ ...b, availableCopies: avail.get(b.id) ?? 0 }));
   }
 
   async getBook(id: string): Promise<Book> {
@@ -47,15 +50,19 @@ export class CatalogService {
     return book;
   }
 
-  async searchBooks(q: string): Promise<Book[]> {
+  async searchBooks(q: string): Promise<(Book & { availableCopies: number })[]> {
     if (!q.trim()) return this.listBooks();
-    return this.dataSource
-      .getRepository(Book)
-      .createQueryBuilder('b')
-      .where(`b.search_vector @@ plainto_tsquery('english', :q)`, { q: q.trim() })
-      .orderBy(`ts_rank(b.search_vector, plainto_tsquery('english', :q))`, 'DESC')
-      .setParameter('q', q.trim())
-      .getMany();
+    const [books, avail] = await Promise.all([
+      this.dataSource
+        .getRepository(Book)
+        .createQueryBuilder('b')
+        .where(`b.search_vector @@ plainto_tsquery('english', :q)`, { q: q.trim() })
+        .orderBy(`ts_rank(b.search_vector, plainto_tsquery('english', :q))`, 'DESC')
+        .setParameter('q', q.trim())
+        .getMany(),
+      this.inventory.getAvailabilityMap(),
+    ]);
+    return books.map((b) => ({ ...b, availableCopies: avail.get(b.id) ?? 0 }));
   }
 
   async updateBook(id: string, dto: UpdateBookDto): Promise<Book> {

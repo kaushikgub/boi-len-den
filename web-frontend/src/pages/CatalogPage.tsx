@@ -16,32 +16,14 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
-import { getBooks, getCatalogBooks } from '../api/books';
+import { getCatalogBooks } from '../api/books';
 import { queryKeys } from '../queryKeys';
 import { BookCover } from '../components/BookCover';
-
-type MergedBook = {
-  id: string;
-  title: string;
-  author: string;
-  totalCopies: number;
-  availableCopies: number;
-  coverUrl: string | null;
-  genre: string | null;
-  description: string | null;
-  publishedYear: number | null;
-};
 
 export function CatalogPage() {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const deferredQ = useDeferredValue(q);
-
-  const { data: books } = useQuery({
-    queryKey: queryKeys.books,
-    queryFn: () => getBooks(),
-    staleTime: 30_000,
-  });
 
   const { data: catalogBooks, isLoading, isError } = useQuery({
     queryKey: queryKeys.catalogBooks,
@@ -49,32 +31,13 @@ export function CatalogPage() {
     staleTime: 30_000,
   });
 
-  const merged = useMemo<MergedBook[]>(() => {
-    if (!catalogBooks) return [];
-    const invMap = new Map((books ?? []).map((b) => [b.id, b]));
-    return catalogBooks.map((cat) => {
-      const inv = invMap.get(cat.id);
-      return {
-        id: cat.id,
-        title: cat.title,
-        author: cat.author,
-        totalCopies: inv?.totalCopies ?? cat.totalCopies,
-        availableCopies: inv?.availableCopies ?? 0,
-        coverUrl: cat.coverUrl,
-        genre: cat.genre,
-        description: cat.description,
-        publishedYear: cat.publishedYear,
-      };
-    });
-  }, [books, catalogBooks]);
-
   const filtered = useMemo(() => {
     const term = deferredQ.trim().toLowerCase();
-    if (!term) return merged;
-    return merged.filter(
+    if (!term) return catalogBooks ?? [];
+    return (catalogBooks ?? []).filter(
       (b) => b.title.toLowerCase().includes(term) || b.author.toLowerCase().includes(term),
     );
-  }, [merged, deferredQ]);
+  }, [catalogBooks, deferredQ]);
 
   return (
     <Box>

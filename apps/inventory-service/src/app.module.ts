@@ -12,6 +12,7 @@ import { InventoryConsumer } from './inventory.consumer';
 import { SweeperService } from './sweeper.service';
 import { SeedService } from './seed.service';
 import { HealthController } from './health.controller';
+import { InternalInventoryController } from './internal.controller';
 
 @Module({
   imports: [
@@ -31,7 +32,7 @@ import { HealthController } from './health.controller';
     }),
     TypeOrmModule.forFeature([Book, Reservation, ProcessedEvent]),
   ],
-  controllers: [InventoryController, ReservationsController, HealthController],
+  controllers: [InventoryController, ReservationsController, InternalInventoryController, HealthController],
   providers: [InventoryService, InventoryConsumer, SweeperService, SeedService],
 })
 export class AppModule {}

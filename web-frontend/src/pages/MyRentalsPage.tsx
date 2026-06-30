@@ -13,7 +13,6 @@ import {
   Typography,
 } from '@mui/material';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
-import { getBooks } from '../api/books';
 import { getMyRentals, returnBook } from '../api/rentals';
 import { queryKeys } from '../queryKeys';
 import { StatusChip } from '../components/StatusChip';
@@ -34,11 +33,6 @@ export function MyRentalsPage() {
     queryFn: () => getMyRentals(tabKey, page, PAGE_SIZE),
   });
 
-  const booksQ = useQuery({
-    queryKey: queryKeys.books,
-    queryFn: getBooks,
-  });
-
   const ret = useMutation({
     mutationFn: (rentalId: string) => returnBook(rentalId),
     onSuccess: () => {
@@ -47,8 +41,7 @@ export function MyRentalsPage() {
     },
   });
 
-  const loading = rentalsQ.isLoading || booksQ.isLoading;
-  const bookById = new Map((booksQ.data ?? []).map((b) => [b.id, b]));
+  const loading = rentalsQ.isLoading;
 
   const rentals = rentalsQ.data?.data ?? [];
   const total = rentalsQ.data?.total ?? 0;
@@ -92,9 +85,8 @@ export function MyRentalsPage() {
         <>
           <Stack spacing={1.5}>
             {rentals.map((r) => {
-              const book = bookById.get(r.bookId);
-              const title = book?.title ?? r.bookId;
-              const coverUrl = book?.coverUrl ?? null;
+              const title = r.bookTitle ?? r.bookId;
+              const coverUrl = r.bookCoverUrl;
               const outstanding = r.status === 'ACTIVE' || r.status === 'OVERDUE';
               const returning = ret.isPending && ret.variables === r.id;
               return (

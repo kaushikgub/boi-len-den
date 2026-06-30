@@ -10,6 +10,7 @@ import { InternalCatalogController } from './internal.controller';
 import { CatalogSetupService } from './catalog-setup.service';
 import { RelayService } from './outbox/relay.service';
 import { HealthController } from './health.controller';
+import { InventoryClient } from './inventory.client';
 
 @Module({
   imports: [
@@ -30,6 +31,6 @@ import { HealthController } from './health.controller';
     TypeOrmModule.forFeature([Book, OutboxMessage]),
   ],
   controllers: [CatalogController, InternalCatalogController, HealthController],
-  providers: [CatalogService, CatalogSetupService, RelayService],
+  providers: [CatalogService, CatalogSetupService, RelayService, InventoryClient],
 })
 export class AppModule {}
