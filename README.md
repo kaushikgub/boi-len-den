@@ -9,7 +9,7 @@ PostgreSQL databases, Kafka event bus, Redis cache/gate, and a React SPA fronten
 
 | Service | Port | Database | Responsibility |
 |---|---|---|---|
-| `api-gateway` | 3000 | — | Public entry point. Validates JWT, enforces rate limits, proxies to downstream services. No business logic. |
+| `api-gateway` | 3000 | — | Public entry point; Validates JWT, enforces rate limits, proxies to downstream services. No business logic. |
 | `auth-service` | 3001 | postgres-auth :5433 | User accounts, RS256 JWT issuance, rotating refresh tokens (stored in Redis), JWKS endpoint for other services to validate tokens without shared secrets. |
 | `rental-service` | 3002 | postgres-rental :5434 | Rental lifecycle: `RESERVED → ACTIVE → RETURNED / OVERDUE`. Writes transactional outbox events. Runs the hourly overdue-detection cron job. |
 | `inventory-service` | 3003 | postgres-inventory :5435 | Source of truth for `available_copies`. Atomic last-copy guard via `UPDATE … WHERE available_copies > 0`. Consumes `book-rented` / `book-returned` / `book-created` from Kafka. |
