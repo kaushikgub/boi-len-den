@@ -2,7 +2,6 @@
 
 A book rental platform built as **NestJS microservices** — monorepo with independent
 PostgreSQL databases, Kafka event bus, Redis cache/gate, and a React SPA frontend.
-
 ---
 
 ## Services
